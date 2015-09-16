@@ -31,6 +31,7 @@ func (dn *DirectoryNode) findNode(paths []string, handler BlockHandler, createFi
 			if createFileNode {
 				nodeId = handler.GetFreeBlockNode(FILE)
 				fileNode = &FileNode{Node: nodeId, Blocks: make([]BlockNode, 20), Continuation: NilBlock}
+				fileNode.Stats.setNow()
 				handler.SaveRawBlock(nodeId, rawBlock(fileNode))
 				dn.Files[paths[0]] = nodeId
 				handler.SaveRawBlock(dn.Node, rawBlock(dn))
@@ -53,6 +54,7 @@ func (dn *DirectoryNode) findNode(paths []string, handler BlockHandler, createFi
 				// Create new DirectoryNode, write that, update this DirectoryNode, write that
 				newDnId = handler.GetFreeBlockNode(DIRECTORY)
 				newDn = &DirectoryNode{Node: newDnId, Folders: make(map[string]BlockNode), Files: make(map[string]BlockNode), Continuation: NilBlock}
+				newDn.Stats.setNow()
 				handler.SaveRawBlock(newDnId, rawBlock(newDn))
 				dn.Folders[paths[0]] = newDnId
 				handler.SaveRawBlock(dn.Node, rawBlock(dn))

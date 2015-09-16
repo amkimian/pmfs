@@ -29,4 +29,11 @@ func main() {
 	} else {
 		fmt.Printf("Data is %v\n", string(x))
 	}
+
+	stats, e2 := f.StatFile("/fred/alan")
+	if e2 != nil {
+		fmt.Println(e2)
+	} else {
+		fmt.Printf("Created : %v\nModified : %v\nAccessed : %v\n", stats.Created, stats.Modified, stats.Accessed)
+	}
 }
