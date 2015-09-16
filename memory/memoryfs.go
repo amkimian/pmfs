@@ -8,7 +8,7 @@ import (
 
 type MemoryFileSystem struct {
 	Blocks          map[fs.BlockNode][]byte
-	UnusedNodeStart fs.BlockNode
+	UnusedNodeStart int
 }
 
 func (mfs *MemoryFileSystem) Init(configuration string) {
@@ -22,15 +22,25 @@ func (mfs *MemoryFileSystem) Format(blockCount int, blockSize int) {
 	mfs.Blocks = make(map[fs.BlockNode][]byte)
 }
 
+func (mfs *MemoryFileSystem) GetFreeBlockNode(NodeType fs.BlockNodeType) fs.BlockNode {
+	var node fs.BlockNode
+	node.Type = NodeType
+	node.Id = mfs.UnusedNodeStart
+	mfs.UnusedNodeStart = mfs.UnusedNodeStart + 1
+	return node
+}
+
 func (mfs *MemoryFileSystem) GetRawBlock(node fs.BlockNode) []byte {
 	return mfs.Blocks[node]
 }
 
 func (mfs *MemoryFileSystem) SaveRawBlock(node fs.BlockNode, data []byte) fs.BlockNode {
-	if node == -1 {
-		node = mfs.UnusedNodeStart
-		mfs.UnusedNodeStart = mfs.UnusedNodeStart + 1
-	}
 	mfs.Blocks[node] = data
 	return node
+}
+
+func (mfs *MemoryFileSystem) FreeBlocks(blocks []fs.BlockNode) {
+	for i := range blocks {
+		delete(mfs.Blocks, blocks[i])
+	}
 }

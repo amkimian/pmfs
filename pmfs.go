@@ -16,7 +16,11 @@ func main() {
 
 	f.Init(&mh, "")
 	f.Format(100, 100)
-	f.WriteFile("/fred", []byte("Hello world"))
-	x := f.ReadFile("/fred")
-	fmt.Printf("Data is %v\n", x)
+	f.WriteFile("/fred/alan", []byte("Hello world"))
+	x, err := f.ReadFile("/fred/alan")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Printf("Data is %v\n", string(x))
+	}
 }
