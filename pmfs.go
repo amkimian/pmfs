@@ -17,6 +17,12 @@ func main() {
 	f.Init(&mh, "")
 	f.Format(100, 100)
 	f.WriteFile("/fred/alan", []byte("Hello world"))
+
+	names, _ := f.ListDirectory("/fred")
+	for y := range names {
+		fmt.Println(names[y])
+	}
+
 	x, err := f.ReadFile("/fred/alan")
 	if err != nil {
 		fmt.Println(err)
