@@ -7,7 +7,7 @@ import "github.com/amkimian/pmfs/memory"
 // Phoenix Meta File System
 // Abstracts the concept of a file system to underlying cloud block storage devices
 
-func main() {
+func mainOld() {
 	fmt.Println("Starting PMFS Test")
 	// Mount a memory root file system
 	// Add some content, read it back
