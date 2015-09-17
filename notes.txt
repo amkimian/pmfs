@@ -1,6 +1,7 @@
 Some notes on what needs to be done for pmfs
 
-Append to File
+(DONE for now) Append to File
+Copy File (do this at the block level really - and between file systems potentially - it's really a series of append file calls for each block)
 Create file of a given type (which can also be used to create a mountable file)
 Handling traversal of mounted filesystems
 Upper side caching of nodes, channel to sync updates, non-removal of cached items that are not synced
@@ -18,5 +19,23 @@ Functions to page through a file or directory listing (byte point to byte point,
 MongoDB implementation
 Cassandra implementation
 Postgresql implementation
+Client side shell https://github.com/nsf/termbox-go
 Thrift api + client side application (using that console based library?) (like a shell prompt with some screen stuff going on)
 Web front end (browse structure, search using tags, browse versions, update data, append data, delete data, create mount points, archive versions)
+Symbolic links (hard and soft)
+
+
+Sample commands through the "shell"
+
+cd /alan   ; do a stat on the folder
+ls         ; dir listing
+cat /alan/1  ; print out contents
+append /alan/1 content  ; add to file
+append 1 content  ; add to file, using the current directory
+rm 1    ; delete a file
+copy 1 2  ; copy one file to another
+stat 1  ; print out information on a file
+mount /fred/mongo mongodb:/127.0.0.1:1222/db collectionName
+append /fred/mongo/one Some content ; Would now be writing to mongodb
+cat /fred/mongo ; Would write out some information about the mount point
+rm /fred/mongo ; Would remove that mount point (maybe not removing the data?)
