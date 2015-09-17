@@ -125,6 +125,86 @@ func (rfs *RootFileSystem) DeleteFile(fileName string) error {
 	return err
 }
 
+// Appends the content to the given file, creating the file if it doesn't exist
+func (rfs *RootFileSystem) AppendFile(fileName string, contents []byte) error {
+	parts := strings.Split(fileName, "/")
+	rawRoot := rfs.BlockHandler.GetRawBlock(rfs.SuperBlock.RootDirectory)
+	dn := getDirectoryNode(rawRoot)
+	fn, err := dn.findNode(parts[1:], rfs.BlockHandler, true)
+	var currentData []byte
+	if err == nil {
+		// We need to find the last data block, and append to the data of that block so that it is filled up,
+		// then add any remaining data to a new data block
+		found := false
+		var currentBlockId BlockNode
+		for !found {
+			if fn.Continuation == NilBlock {
+				if len(fn.Blocks) == 0 {
+					currentBlockId = rfs.BlockHandler.GetFreeBlockNode(DATA)
+					currentData = make([]byte, 0, rfs.SuperBlock.BlockSize)
+					fn.Blocks = append(fn.Blocks, currentBlockId)
+					rfs.BlockHandler.SaveRawBlock(fn.Node, rawBlock(fn))
+				} else {
+					currentBlockId = fn.Blocks[len(fn.Blocks)-1]
+					currentData = rfs.BlockHandler.GetRawBlock(currentBlockId)
+				}
+				found = true
+			} else {
+				fileBytes := rfs.BlockHandler.GetRawBlock(fn.Continuation)
+				fn = getFileNode(fileBytes)
+			}
+		}
+		// Now fn will contain the appropriate filenode, and currentBlockId will be the currentBlockId to append to
+		currentData, contents = safeAppend(currentData, contents, rfs.SuperBlock.BlockSize)
+		rfs.BlockHandler.SaveRawBlock(currentBlockId, currentData)
+		if len(contents) != 0 {
+			rfs.saveNewData(fn, contents)
+		}
+	} else {
+		return err
+	}
+	return nil
+}
+
+func safeAppend(target []byte, source []byte, maxSize int) ([]byte, []byte) {
+	lt := len(target)
+	toCopy := cap(target) - lt
+	if toCopy > len(source) {
+		toCopy = len(source)
+	}
+	target = append(target, source[0:toCopy]...)
+	return target, source[toCopy:]
+}
+
+func (rfs *RootFileSystem) saveNewData(fn *FileNode, contents []byte) {
+
+	fn.Stats.Size = len(contents)
+	for i := 0; i < len(contents); i = i + rfs.SuperBlock.BlockSize {
+		var toWrite []byte
+		if i+rfs.SuperBlock.BlockSize > len(contents) {
+			toWrite = contents[i:]
+		} else {
+			toWrite = contents[i : i+rfs.SuperBlock.BlockSize]
+		}
+		if len(fn.Blocks) >= 20 { // Arbitary
+			newContNode := rfs.BlockHandler.GetFreeBlockNode(FILE)
+			newContFileNode := FileNode{Node: newContNode, Blocks: make([]BlockNode, 20), Continuation: NilBlock}
+			newContFileNode.Stats.setNow()
+			fn.Continuation = newContNode
+			rfs.BlockHandler.SaveRawBlock(fn.Node, rawBlock(fn))
+			fn = &newContFileNode
+		}
+		newDataNode := rfs.BlockHandler.GetFreeBlockNode(DATA)
+		fn.Blocks = append(fn.Blocks, newDataNode)
+		fn.Stats.modified()
+		rfs.BlockHandler.SaveRawBlock(newDataNode, toWrite)
+	}
+
+	fn.Stats.modified()
+	rfs.BlockHandler.SaveRawBlock(fn.Node, rawBlock(fn))
+
+}
+
 // Writes a file, creating if it doesn't exist, overwriting if it does
 func (rfs *RootFileSystem) WriteFile(fileName string, contents []byte) error {
 	// Find record for this fileName from RootFileSystem
@@ -144,36 +224,7 @@ func (rfs *RootFileSystem) WriteFile(fileName string, contents []byte) error {
 			contin = fileNode.Continuation
 		}
 
-		// Loop through contents, writing out bytes in blocks of size rfs.SuperBlock.BlockSize
-		// For each DataNode, add to the fn.Blocks
-		// If fn.Blocks gets too large, create a new FileNode, put that as the Continuation, write this fileNode out
-		// Move to that node
-
-		fn.Stats.Size = len(contents)
-
-		for i := 0; i < len(contents); i = i + rfs.SuperBlock.BlockSize {
-			var toWrite []byte
-			if i+rfs.SuperBlock.BlockSize > len(contents) {
-				toWrite = contents[i:]
-			} else {
-				toWrite = contents[i : i+rfs.SuperBlock.BlockSize]
-			}
-			if len(fn.Blocks) >= 20 { // Arbitary
-				newContNode := rfs.BlockHandler.GetFreeBlockNode(FILE)
-				newContFileNode := FileNode{Node: newContNode, Blocks: make([]BlockNode, 20), Continuation: NilBlock}
-				newContFileNode.Stats.setNow()
-				fn.Continuation = newContNode
-				rfs.BlockHandler.SaveRawBlock(fn.Node, rawBlock(fn))
-				fn = &newContFileNode
-			}
-			newDataNode := rfs.BlockHandler.GetFreeBlockNode(DATA)
-			fn.Blocks = append(fn.Blocks, newDataNode)
-			fn.Stats.modified()
-			rfs.BlockHandler.SaveRawBlock(newDataNode, toWrite)
-		}
-
-		fn.Stats.modified()
-		rfs.BlockHandler.SaveRawBlock(fn.Node, rawBlock(fn))
+		rfs.saveNewData(fn, contents)
 
 		return nil
 	} else {

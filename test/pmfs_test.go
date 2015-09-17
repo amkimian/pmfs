@@ -48,6 +48,18 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func TestAppend(m *testing.T) {
+	f.AppendFile("/append/1", []byte("Hello world 1"))
+	f.AppendFile("/append/1", []byte(", Hello world 2"))
+	v, err := contentsFile("/append/1")
+	if err != nil {
+		m.Errorf("%v", err)
+	}
+	if v != "Hello world 1, Hello world 2" {
+		fmt.Println(v)
+		m.Error(v)
+	}
+}
 func TestSimpleReadWrite(m *testing.T) {
 	f.WriteFile("/fred/alan", []byte("Hello world"))
 
