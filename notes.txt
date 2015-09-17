@@ -1,0 +1,22 @@
+Some notes on what needs to be done for pmfs
+
+Append to File
+Create file of a given type (which can also be used to create a mountable file)
+Handling traversal of mounted filesystems
+Upper side caching of nodes, channel to sync updates, non-removal of cached items that are not synced
+Series files (pass inode and key/value to underlying)
+Tags (filesystem based tagname -> key/value (and path or inode?), with the ability to search, order, filter etc.)
+    e.g.   Color -> Red -> [ /one/two, /three/four]
+    Find paths where color = 'Red'
+    Updating tags on deletion (so perhaps a reverse index needs to also be stored)
+    Tag data saved as nodes of course
+Versioning
+    Create new version instead of just overwriting. Version links could be perhaps tags pointing to inodes of the original file node
+     instead of paths
+    E.g.    Version -> /one/two/three [ 1 -> 12223, 2 -> 22211, 3 -> 23324 ]
+Functions to page through a file or directory listing (byte point to byte point, series start to end, etc.)
+MongoDB implementation
+Cassandra implementation
+Postgresql implementation
+Thrift api + client side application (using that console based library?) (like a shell prompt with some screen stuff going on)
+Web front end (browse structure, search using tags, browse versions, update data, append data, delete data, create mount points, archive versions)

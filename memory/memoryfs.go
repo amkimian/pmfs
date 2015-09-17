@@ -29,7 +29,7 @@ func (mfs *MemoryFileSystem) Init(configuration string) {
 // Format the file system - clearing the in memory map of blocks and reseting the node id
 func (mfs *MemoryFileSystem) Format(blockCount int, blockSize int) {
 	// Initialize a new memory file system
-	fmt.Println("Format memory filesystem")
+	//fmt.Println("Format memory filesystem")
 	mfs.Blocks = make(map[fs.BlockNode][]byte)
 	mfs.UnusedNodeStart = 20000
 }
