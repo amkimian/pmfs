@@ -1,6 +1,7 @@
 package fs
 
 import "bytes"
+
 import "encoding/gob"
 
 func rawBlock(sb interface{}) []byte {
