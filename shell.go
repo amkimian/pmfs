@@ -38,11 +38,15 @@ type DrawContext struct {
 	outputArea         int
 	currentInputString string
 	executor           shell.ShellExecutor
+	history            []string
+	historyPoint       int
 }
 
 func (d *DrawContext) init() {
 	d.currentInputString = ""
 	d.executor.Init()
+	d.history = make([]string, 0)
+	d.historyPoint = 0
 	d.setDimensions(termbox.Size())
 }
 
@@ -74,10 +78,25 @@ func (d *DrawContext) printFolder() {
 func (d *DrawContext) executeLine() {
 	output := d.executor.ExecuteLine(d.currentInputString)
 	d.drawOutput(output)
+	// Remove this line if it appears in the history
+	if d.historyPoint >= 0 && d.historyPoint < len(d.history) {
+		d.history = append(d.history[:d.historyPoint], d.history[d.historyPoint+1:]...)
+	}
+	d.history = append(d.history, d.currentInputString)
+	d.historyPoint = len(d.history)
 	d.currentInputString = ""
 	d.drawInputLine()
 	d.printFolder()
 	termbox.Flush()
+}
+
+func (d *DrawContext) handleHistory(direction int) {
+	newPoint := d.historyPoint + direction
+	if newPoint < len(d.history) && newPoint > 0 {
+		d.historyPoint = newPoint
+		d.currentInputString = d.history[d.historyPoint]
+		d.drawInputLine()
+	}
 }
 
 func (d *DrawContext) drawOutput(output []string) {
@@ -150,6 +169,10 @@ loop:
 				context.removeInput()
 			case termbox.KeySpace:
 				context.addToInput(' ')
+			case termbox.KeyArrowUp:
+				context.handleHistory(-1)
+			case termbox.KeyArrowDown:
+				context.handleHistory(1)
 			default:
 				context.addToInput(ev.Ch)
 			}

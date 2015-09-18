@@ -235,13 +235,13 @@ func (rfs *RootFileSystem) WriteFile(fileName string, contents []byte) error {
 }
 
 // Return the stats of the passed file
-func (rfs *RootFileSystem) StatFile(fileName string) (*FileStats, error) {
+func (rfs *RootFileSystem) StatFile(fileName string) (*FileNode, error) {
 	parts := strings.Split(fileName, "/")
 	rawRoot := rfs.BlockHandler.GetRawBlock(rfs.SuperBlock.RootDirectory)
 	dn := getDirectoryNode(rawRoot)
 	fn, err := dn.findNode(parts[1:], rfs.BlockHandler, false)
 	if err == nil {
-		return &fn.Stats, nil
+		return fn, nil
 	} else {
 		return nil, err
 	}

@@ -16,24 +16,25 @@ func mainOld() {
 
 	f.Init(&mh, "")
 	f.Format(100, 100)
-	f.WriteFile("/fred/alan", []byte("Hello world"))
+	f.WriteFile("/eileen/alan", []byte("Hello world"))
 
-	names, _ := f.ListDirectory("/fred")
+	names, _ := f.ListDirectory("/eileen")
 	for y := range names {
 		fmt.Println(names[y])
 	}
 
-	x, err := f.ReadFile("/fred/alan")
+	x, err := f.ReadFile("/eileen/alan")
 	if err != nil {
 		fmt.Println(err)
 	} else {
 		fmt.Printf("Data is %v\n", string(x))
 	}
 
-	stats, e2 := f.StatFile("/fred/alan")
+	fn, e2 := f.StatFile("/eileen/alan")
 	if e2 != nil {
 		fmt.Println(e2)
 	} else {
+		stats := fn.Stats
 		fmt.Printf("Created : %v\nModified : %v\nAccessed : %v\n", stats.Created, stats.Modified, stats.Accessed)
 	}
 }

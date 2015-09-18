@@ -60,7 +60,7 @@ func executeCat(parameters []string, remainingCommand string, executor *ShellExe
 }
 
 func executeStat(parameters []string, remainingCommand string, executor *ShellExecutor) []string {
-	stat, _ := executor.rfs.StatFile(parameters[0])
-	fullString := fmt.Sprintf("Size : %d\nAccessed : %v\nCreated  : %v\nModified : %v\n", stat.Size, stat.Accessed, stat.Created, stat.Modified)
+	fileNode, _ := executor.rfs.StatFile(parameters[0])
+	fullString := fmt.Sprintf("Size : %d\nAccessed : %v\nCreated  : %v\nModified : %v\n", fileNode.Stats.Size, fileNode.Stats.Accessed, fileNode.Stats.Created, fileNode.Stats.Modified)
 	return strings.Split(fullString, "\n")
 }

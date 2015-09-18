@@ -19,10 +19,11 @@ Functions to page through a file or directory listing (byte point to byte point,
 MongoDB implementation
 Cassandra implementation
 Postgresql implementation
-Client side shell https://github.com/nsf/termbox-go
+(INPROGRESS) Client side shell https://github.com/nsf/termbox-go
 Thrift api + client side application (using that console based library?) (like a shell prompt with some screen stuff going on)
 Web front end (browse structure, search using tags, browse versions, update data, append data, delete data, create mount points, archive versions)
 Symbolic links (hard and soft)
+Channel on shell to show output from filesystem execution (messages basically)
 
 
 Sample commands through the "shell"
