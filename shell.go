@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/amkimian/pmfs/shell"
 	"github.com/nsf/termbox-go"
 )
 
@@ -35,13 +36,13 @@ type DrawContext struct {
 	entryLine          int
 	folderRightPoint   int
 	outputArea         int
-	folder             string
 	currentInputString string
+	executor           shell.ShellExecutor
 }
 
 func (d *DrawContext) init() {
 	d.currentInputString = ""
-	d.folder = "/"
+	d.executor.Init()
 	d.setDimensions(termbox.Size())
 }
 
@@ -66,13 +67,25 @@ func (d *DrawContext) printTitle() {
 }
 
 func (d *DrawContext) printFolder() {
-	folderString := fmt.Sprintf("Folder: %s", d.folder)
+	folderString := fmt.Sprintf("Folder: %s", d.executor.Cwd)
 	printRightString(d.folderRightPoint, 0, folderString, termbox.ColorCyan|termbox.AttrBold, termbox.ColorDefault)
 }
 
 func (d *DrawContext) executeLine() {
+	output := d.executor.ExecuteLine(d.currentInputString)
+	d.drawOutput(output)
 	d.currentInputString = ""
 	d.drawInputLine()
+	d.printFolder()
+	termbox.Flush()
+}
+
+func (d *DrawContext) drawOutput(output []string) {
+	for i := range output {
+		printString(0, d.outputArea+i, output[i], termbox.ColorBlue, termbox.ColorDefault)
+		clearArea(len(output[i]), d.outputArea+i, d.width-1, d.outputArea+i+1)
+	}
+	clearArea(0, d.outputArea+len(output), d.width-1, d.entryLine-2)
 }
 
 func (d *DrawContext) drawLines() {
@@ -135,13 +148,15 @@ loop:
 				context.removeInput()
 			case termbox.KeyBackspace2:
 				context.removeInput()
+			case termbox.KeySpace:
+				context.addToInput(' ')
 			default:
 				context.addToInput(ev.Ch)
 			}
 			keyString := fmt.Sprintf("Key Event %v", ev)
-			printString(0, 10, keyString, termbox.ColorMagenta, termbox.ColorDefault)
+			printString(0, context.entryLine-4, keyString, termbox.ColorMagenta, termbox.ColorDefault)
 			charString := fmt.Sprintf("Key pressed %c", ev.Ch)
-			printString(0, 11, charString, termbox.ColorMagenta, termbox.ColorDefault)
+			printString(0, context.entryLine-3, charString, termbox.ColorMagenta, termbox.ColorDefault)
 			termbox.Flush()
 		case termbox.EventResize:
 			context.setDimensions(termbox.Size())

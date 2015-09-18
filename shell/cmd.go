@@ -7,6 +7,13 @@ import (
 )
 import "github.com/amkimian/pmfs/memory"
 
+type ParserExecFunction func(parameters []string, remainingCommand string, executor *ShellExecutor) []string
+
+type ParserCommand struct {
+	numberOfKnownParameters int
+	runFn                   ParserExecFunction
+}
+
 type ShellExecutor struct {
 	rfs fs.RootFileSystem
 	Cwd string
@@ -22,22 +29,26 @@ type CommandParser struct {
 	parameters       []string
 }
 
-func (cp *CommandParser) parse(full string) {
+func (cp *CommandParser) parse(full string, executor *ShellExecutor) []string {
 	cp.fullCommand = full
 	cp.commandToken, cp.remainingCommand = grabToken(full)
-	// Now we switch on commandToken
-	if cp.commandToken == "cd" {
-		cp.parameters, cp.remainingCommand = grabTokens(cp.remainingCommand, 1)
+	parserCommand, ok := parserCommands[cp.commandToken]
+	if ok {
+		cp.parameters, cp.remainingCommand = grabTokens(cp.remainingCommand, parserCommand.numberOfKnownParameters)
+		return parserCommand.runFn(cp.parameters, cp.remainingCommand, executor)
 	} else {
 		fmt.Printf("Command token is '%s'\n", cp.commandToken)
 	}
+	ret := make([]string, 1)
+	ret[0] = "Don't know what to do"
+	return ret
 }
 
 func grabTokens(line string, tokenCount int) ([]string, string) {
-	fmt.Println("Grabbing tokens")
+	//fmt.Println("Grabbing tokens")
 	ret := make([]string, tokenCount)
 	for i := 0; i < tokenCount && len(line) > 0; i++ {
-		fmt.Printf("Grabbing next token from '%s'\n", line)
+		//fmt.Printf("Grabbing next token from '%s'\n", line)
 		ret[i], line = grabToken(line)
 	}
 	return ret, line
@@ -47,23 +58,28 @@ func grabTokens(line string, tokenCount int) ([]string, string) {
 func grabToken(line string) (string, string) {
 	tokenChars := make([]byte, 0)
 	var endPoint int
-	for i, found := 0, false; !found && (i < len(line)); i++ {
+	var found = false
+	var i = 0
+	for i, found = 0, false; !found && (i < len(line)); i++ {
 		if line[i] == ' ' {
 			found = true
 			endPoint = i
 		} else {
-			fmt.Printf("Adding %c\n", line[i])
 			tokenChars = append(tokenChars, line[i])
 		}
 	}
-	return string(tokenChars), line[endPoint+1:]
+	if !found {
+		return string(tokenChars), ""
+	} else {
+		return string(tokenChars), line[endPoint+1:]
+	}
 }
 
 func (se *ShellExecutor) Init() {
 	var mh memory.MemoryFileSystem
 	se.rfs.Init(&mh, "")
 	se.rfs.Format(100, 100)
-	se.Cwd = "/"
+	se.Cwd = "/alan"
 }
 
 func (se *ShellExecutor) ExecuteLine(line string) []string {
@@ -73,5 +89,7 @@ func (se *ShellExecutor) ExecuteLine(line string) []string {
 	// on the command. Each command will either alter the cwd, or execute something
 	// against the filesystem, ultimately returning something that we then
 	// convert to a series of strings that we can display
-	return make([]string, 0)
+	cp := CommandParser{}
+	ret := cp.parse(line, se)
+	return ret
 }
