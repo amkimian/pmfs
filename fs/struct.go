@@ -30,6 +30,7 @@ type RootFileSystem struct {
 	BlockHandler  BlockHandler
 	Configuration string
 	SuperBlock    SuperBlockNode
+	Notification  chan string
 }
 
 // A BlockNode has a type and a unique id in the filesystem

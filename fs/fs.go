@@ -11,6 +11,7 @@ func (rfs *RootFileSystem) Init(handler BlockHandler, configuration string) {
 	rfs.BlockHandler = handler
 	rfs.Configuration = configuration
 	rfs.BlockHandler.Init(configuration)
+	rfs.Notification = make(chan string)
 }
 
 // Dump to std out information about this filesystem (system specific)
@@ -68,33 +69,16 @@ func (rfs *RootFileSystem) ListDirectory(path string) ([]string, error) {
 	return entries, nil
 }
 
-func addBlock(blocks []BlockNode, block BlockNode) []BlockNode {
-	n := len(blocks)
-	if n == cap(blocks) {
-		// Slice is full; must grow.
-		// We double its size and add 1, so if the size is zero we still grow.
-		newSlice := make([]BlockNode, len(blocks), 2*len(blocks)+1)
-		copy(newSlice, blocks)
-		blocks = newSlice
-	}
-	blocks = blocks[0 : n+1]
-	blocks[n] = block
-	return blocks
-}
-
-func addBlocks(blocks []BlockNode, blockArr []BlockNode) []BlockNode {
-	for i := range blockArr {
-		blocks = addBlock(blocks, blockArr[i])
-	}
-	return blocks
-}
-
 func getKeys(maps map[string]BlockNode) []string {
 	keys := make([]string, 0, len(maps))
 	for k := range maps {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func (rfs *RootFileSystem) deliverMessage(msg string) {
+	rfs.Notification <- msg
 }
 
 // Delete the contents (that the fileName points to)
@@ -105,14 +89,16 @@ func (rfs *RootFileSystem) DeleteFile(fileName string) error {
 	fn, err := dn.findNode(parts[1:], rfs.BlockHandler, false)
 	dnReal, err2 := dn.findDirectoryNode(parts[1:len(parts)-1], rfs.BlockHandler)
 	if err == nil && err2 == nil {
-		blocks := make([]BlockNode, 100)
-		blocks = addBlock(blocks, fn.Node)
-		blocks = addBlocks(blocks, fn.Blocks)
+		rfs.deliverMessage("Removing blocks")
+		blocks := make([]BlockNode, 0)
+		blocks = append(blocks, fn.Node)
+		blocks = append(blocks, fn.Blocks...)
 		contin := fn.Continuation
 		for contin != NilBlock {
+			rfs.deliverMessage("Removing continuation blocks")
 			fileBytes := rfs.BlockHandler.GetRawBlock(contin)
 			fileNode := getFileNode(fileBytes)
-			blocks = addBlocks(blocks, fileNode.Blocks)
+			blocks = append(blocks, fileNode.Blocks...)
 			contin = fileNode.Continuation
 		}
 		rfs.BlockHandler.FreeBlocks(blocks)
@@ -136,26 +122,31 @@ func (rfs *RootFileSystem) AppendFile(fileName string, contents []byte) error {
 		// We need to find the last data block, and append to the data of that block so that it is filled up,
 		// then add any remaining data to a new data block
 		found := false
+		rfs.deliverMessage("Finding latest block")
 		var currentBlockId BlockNode
 		for !found {
 			if fn.Continuation == NilBlock {
 				if len(fn.Blocks) == 0 {
+					rfs.deliverMessage("There is no data, creating...")
 					currentBlockId = rfs.BlockHandler.GetFreeBlockNode(DATA)
 					currentData = make([]byte, 0, rfs.SuperBlock.BlockSize)
 					fn.Blocks = append(fn.Blocks, currentBlockId)
 					rfs.BlockHandler.SaveRawBlock(fn.Node, rawBlock(fn))
 				} else {
+					rfs.deliverMessage("Found last block")
 					currentBlockId = fn.Blocks[len(fn.Blocks)-1]
 					currentData = rfs.BlockHandler.GetRawBlock(currentBlockId)
 				}
 				found = true
 			} else {
+				rfs.deliverMessage("Looking at continuation")
 				fileBytes := rfs.BlockHandler.GetRawBlock(fn.Continuation)
 				fn = getFileNode(fileBytes)
 			}
 		}
 		// Now fn will contain the appropriate filenode, and currentBlockId will be the currentBlockId to append to
 		currentData, contents = safeAppend(currentData, contents, rfs.SuperBlock.BlockSize)
+		rfs.deliverMessage("Saving data")
 		rfs.BlockHandler.SaveRawBlock(currentBlockId, currentData)
 		if len(contents) != 0 {
 			rfs.saveNewData(fn, contents)
@@ -188,7 +179,7 @@ func (rfs *RootFileSystem) saveNewData(fn *FileNode, contents []byte) {
 		}
 		if len(fn.Blocks) >= 20 { // Arbitary
 			newContNode := rfs.BlockHandler.GetFreeBlockNode(FILE)
-			newContFileNode := FileNode{Node: newContNode, Blocks: make([]BlockNode, 20), Continuation: NilBlock}
+			newContFileNode := FileNode{Node: newContNode, Blocks: make([]BlockNode, 0), Continuation: NilBlock}
 			newContFileNode.Stats.setNow()
 			fn.Continuation = newContNode
 			rfs.BlockHandler.SaveRawBlock(fn.Node, rawBlock(fn))

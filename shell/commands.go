@@ -27,7 +27,7 @@ func executeCD(parameters []string, remainingCommand string, executor *ShellExec
 
 func executeAddFile(parameters []string, remainingCommand string, executor *ShellExecutor) []string {
 	filePath := util.ResolvePath(executor.Cwd, parameters[0])
-	executor.rfs.WriteFile(filePath, []byte(remainingCommand))
+	executor.Rfs.WriteFile(filePath, []byte(remainingCommand))
 	ret := make([]string, 1)
 	ret[0] = fmt.Sprintf("Created file %s", parameters[0])
 	return ret
@@ -35,7 +35,7 @@ func executeAddFile(parameters []string, remainingCommand string, executor *Shel
 
 func executeAppend(parameters []string, remainingCommand string, executor *ShellExecutor) []string {
 	filePath := util.ResolvePath(executor.Cwd, parameters[0])
-	executor.rfs.AppendFile(filePath, []byte(remainingCommand))
+	executor.Rfs.AppendFile(filePath, []byte(remainingCommand))
 	ret := make([]string, 1)
 	ret[0] = fmt.Sprintf("Appended to file %s", parameters[0])
 	return ret
@@ -43,7 +43,7 @@ func executeAppend(parameters []string, remainingCommand string, executor *Shell
 
 func executeAppendLine(parameters []string, remainingCommand string, executor *ShellExecutor) []string {
 	filePath := util.ResolvePath(executor.Cwd, parameters[0])
-	executor.rfs.AppendFile(filePath, []byte("\n"+remainingCommand))
+	executor.Rfs.AppendFile(filePath, []byte("\n"+remainingCommand))
 	ret := make([]string, 1)
 	ret[0] = fmt.Sprintf("Appended with cr to file %s", parameters[0])
 	return ret
@@ -51,20 +51,20 @@ func executeAppendLine(parameters []string, remainingCommand string, executor *S
 
 func executeLS(parameters []string, remainingCommand string, executor *ShellExecutor) []string {
 	filePath := util.ResolvePath(executor.Cwd, parameters[0])
-	ret, _ := executor.rfs.ListDirectory(filePath)
+	ret, _ := executor.Rfs.ListDirectory(filePath)
 	return ret
 }
 
 func executeCat(parameters []string, remainingCommand string, executor *ShellExecutor) []string {
 	filePath := util.ResolvePath(executor.Cwd, parameters[0])
-	arr, _ := executor.rfs.ReadFile(filePath)
+	arr, _ := executor.Rfs.ReadFile(filePath)
 	// Need to convert it into a string, then split on \n
 	return strings.Split(string(arr), "\n")
 }
 
 func executeStat(parameters []string, remainingCommand string, executor *ShellExecutor) []string {
 	filePath := util.ResolvePath(executor.Cwd, parameters[0])
-	fileNode, _ := executor.rfs.StatFile(filePath)
+	fileNode, _ := executor.Rfs.StatFile(filePath)
 	fullString := fmt.Sprintf("Size : %d\nAccessed : %v\nCreated  : %v\nModified : %v\n", fileNode.Stats.Size, fileNode.Stats.Accessed, fileNode.Stats.Created, fileNode.Stats.Modified)
 	return strings.Split(fullString, "\n")
 }

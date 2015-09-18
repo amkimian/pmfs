@@ -15,7 +15,7 @@ type ParserCommand struct {
 }
 
 type ShellExecutor struct {
-	rfs fs.RootFileSystem
+	Rfs fs.RootFileSystem
 	Cwd string
 }
 
@@ -77,8 +77,8 @@ func grabToken(line string) (string, string) {
 
 func (se *ShellExecutor) Init() {
 	var mh memory.MemoryFileSystem
-	se.rfs.Init(&mh, "")
-	se.rfs.Format(100, 100)
+	se.Rfs.Init(&mh, "")
+	se.Rfs.Format(100, 100)
 	se.Cwd = "/alan"
 }
 

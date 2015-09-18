@@ -36,18 +36,33 @@ type DrawContext struct {
 	entryLine          int
 	folderRightPoint   int
 	outputArea         int
+	msgColumn          int
 	currentInputString string
 	executor           shell.ShellExecutor
 	history            []string
 	historyPoint       int
+	msgHistory         []string
 }
 
 func (d *DrawContext) init() {
 	d.currentInputString = ""
 	d.executor.Init()
 	d.history = make([]string, 0)
+	d.msgHistory = make([]string, 0)
 	d.historyPoint = 0
 	d.setDimensions(termbox.Size())
+}
+
+func (d *DrawContext) addMessageHistory(msg string) {
+	d.msgHistory = append(d.msgHistory, msg)
+	if len(d.msgHistory) > 20 {
+		d.msgHistory = d.msgHistory[1:]
+	}
+	for i := range d.msgHistory {
+		printString(d.msgColumn, d.outputArea+i, d.msgHistory[i], termbox.ColorGreen, termbox.ColorDefault)
+		clearArea(d.msgColumn+len(d.msgHistory[i]), d.outputArea+i, d.width-1, d.outputArea+i+1)
+	}
+	clearArea(d.msgColumn, d.outputArea+len(d.msgHistory), d.width-1, d.entryLine-2)
 }
 
 func (d *DrawContext) setDimensions(width int, height int) {
@@ -56,6 +71,7 @@ func (d *DrawContext) setDimensions(width int, height int) {
 	d.entryLine = height - 2
 	d.folderRightPoint = width - 1
 	d.outputArea = 3
+	d.msgColumn = width / 2
 	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
 	d.printTitle()
 	d.printFolder()
@@ -102,9 +118,9 @@ func (d *DrawContext) handleHistory(direction int) {
 func (d *DrawContext) drawOutput(output []string) {
 	for i := range output {
 		printString(0, d.outputArea+i, output[i], termbox.ColorBlue, termbox.ColorDefault)
-		clearArea(len(output[i]), d.outputArea+i, d.width-1, d.outputArea+i+1)
+		clearArea(len(output[i]), d.outputArea+i, d.msgColumn-1, d.outputArea+i+1)
 	}
-	clearArea(0, d.outputArea+len(output), d.width-1, d.entryLine-2)
+	clearArea(0, d.outputArea+len(output), d.msgColumn-1, d.entryLine-2)
 }
 
 func (d *DrawContext) drawLines() {
@@ -153,6 +169,12 @@ func main() {
 	}
 	context.init()
 	defer termbox.Close()
+
+	go func() {
+		for msg := range context.executor.Rfs.Notification {
+			context.addMessageHistory(msg)
+		}
+	}()
 
 loop:
 	for {
