@@ -2,6 +2,8 @@ package fs
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -109,6 +111,66 @@ func (rfs *RootFileSystem) DeleteFile(fileName string) error {
 		return nil
 	}
 	return err
+}
+
+// Moving something means taking the definition (FileNode or DirectoryNode blockId) in one
+// DirectoryNode entry and moving it to another DirectoryNode entry, creating that DirectoryNode
+// in the target if it doesn't exist. Note that if we move filesystems we will have to actually
+// copy the file/folder (<-- eek) and then delete from source
+func (rfs *RootFileSystem) MoveFileOrFolder(source string, target string) error {
+	// Get source DirectoryNode for this entity
+	parts := strings.Split(source, "/")
+	lastName := parts[len(parts)-1]
+	rawRoot := rfs.BlockHandler.GetRawBlock(rfs.SuperBlock.RootDirectory)
+	dn := getDirectoryNode(rawRoot)
+	rfs.deliverMessage(fmt.Sprintf("Searching for source, parts is %v", parts))
+	rfs.deliverMessage(fmt.Sprintf("Folders are %v", dn.Folders))
+	sourceNode, err := dn.findParentDirectoryNode(parts[1:], rfs.BlockHandler, false)
+	if err != nil {
+		return err
+	} else {
+		isFolderMove := false
+		rfs.deliverMessage("Looking to find file or folder")
+		blockId, ok := sourceNode.Files[lastName]
+		if !ok {
+			blockId, ok = sourceNode.Folders[lastName]
+			if !ok {
+				return errors.New("Source not found")
+			}
+			isFolderMove = true
+		}
+		targPaths := strings.Split(target, "/")
+		lastTargName := targPaths[len(targPaths)-1]
+		targetNode, err2 := dn.findParentDirectoryNode(targPaths[1:], rfs.BlockHandler, true)
+		if err2 != nil {
+			return errors.New("Could not create or find target")
+		}
+		if isFolderMove {
+			_, alreadyExists := targetNode.Folders[lastTargName]
+			if alreadyExists {
+				return errors.New("Target folder already exists")
+			} else {
+				// Move folder
+				targetNode.Folders[lastTargName] = blockId
+				delete(sourceNode.Folders, lastName)
+			}
+		} else {
+			_, alreadyExists := targetNode.Files[lastTargName]
+			if alreadyExists {
+				return errors.New("Target file already exists")
+			} else {
+				// Move file
+				rfs.deliverMessage(fmt.Sprintf("Source Node Files before %v", sourceNode.Files))
+				targetNode.Files[lastTargName] = blockId
+				delete(sourceNode.Files, lastName)
+				rfs.deliverMessage(fmt.Sprintf("Source Node After before %v", sourceNode.Files))
+			}
+		}
+		// Now save them
+		rfs.BlockHandler.SaveRawBlock(sourceNode.Node, rawBlock(sourceNode))
+		rfs.BlockHandler.SaveRawBlock(targetNode.Node, rawBlock(targetNode))
+		return nil
+	}
 }
 
 // Appends the content to the given file, creating the file if it doesn't exist

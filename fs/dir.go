@@ -4,6 +4,30 @@ import (
 	"errors"
 )
 
+// Finds the parent directory, the one above this one
+func (dn *DirectoryNode) findParentDirectoryNode(paths []string, handler BlockHandler, createDirectoryNode bool) (*DirectoryNode, error) {
+	if len(paths) < 2 {
+		return dn, nil
+	}
+	nodeId, ok := dn.Folders[paths[0]]
+	var dirNode *DirectoryNode
+	if !ok {
+		if createDirectoryNode {
+			dirNode = dn.createSubDirectory(paths[0], handler)
+
+		} else {
+			return nil, errors.New("Parent Folder not found")
+		}
+	} else {
+		dirNode = getDirectoryNode(handler.GetRawBlock(nodeId))
+	}
+	if len(paths) == 2 {
+		return dirNode, nil
+	} else {
+		return dirNode.findDirectoryNode(paths[1:], handler)
+	}
+}
+
 func (dn *DirectoryNode) findDirectoryNode(paths []string, handler BlockHandler) (*DirectoryNode, error) {
 	nodeId, ok := dn.Folders[paths[0]]
 	var dirNode *DirectoryNode

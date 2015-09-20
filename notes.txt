@@ -41,6 +41,13 @@ append /fred/mongo/one Some content ; Would now be writing to mongodb
 cat /fred/mongo ; Would write out some information about the mount point
 rm /fred/mongo ; Would remove that mount point (maybe not removing the data?)
 
+(DONE) delete command in shell
+When you create a file (add a file) you need to specify the mime type (it defaults to text/plain). The mime type
+is stored in the File node.
+A directory node can be a mount type. If we traverse through that we pass on the remaining path to the cached filesystem
+associated with that node id, if the cached fs does not exist we load it from the contents of the extended Block node attributes
+of the directory node (which should contain some structure that was passed during an "add mount" call)
+
 Some bugs
 
-appending data goes into continuation continually once it starts
+(DONE) appending data goes into continuation continually once it starts
