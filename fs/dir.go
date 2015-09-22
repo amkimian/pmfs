@@ -55,7 +55,7 @@ func (dn *DirectoryNode) createSubDirectory(name string, handler BlockHandler) *
 
 func (dn *DirectoryNode) createNewFile(name string, handler BlockHandler) *FileNode {
 	nodeId := handler.GetFreeBlockNode(FILE)
-	fileNode := &FileNode{Node: nodeId, Blocks: make([]BlockNode, 0, 20), Continuation: NilBlock}
+	fileNode := &FileNode{Node: nodeId, DataBlocks: make(map[string]BlockNode, 0), AlternateRoutes: make(map[string]BlockNode, 0)}
 	fileNode.Stats.setNow()
 	handler.SaveRawBlock(nodeId, rawBlock(fileNode))
 	dn.Files[name] = nodeId

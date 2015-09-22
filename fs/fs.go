@@ -94,15 +94,13 @@ func (rfs *RootFileSystem) DeleteFile(fileName string) error {
 		rfs.deliverMessage("Removing blocks")
 		blocks := make([]BlockNode, 0)
 		blocks = append(blocks, fn.Node)
-		blocks = append(blocks, fn.Blocks...)
-		contin := fn.Continuation
-		for contin != NilBlock {
-			rfs.deliverMessage("Removing continuation blocks")
-			fileBytes := rfs.BlockHandler.GetRawBlock(contin)
-			fileNode := getFileNode(fileBytes)
-			blocks = append(blocks, fileNode.Blocks...)
-			contin = fileNode.Continuation
+		for _, v := range fn.DataBlocks {
+			blocks = append(blocks, v)
 		}
+		for _, v := range fn.AlternateRoutes {
+			blocks = append(blocks, v)
+		}
+
 		rfs.BlockHandler.FreeBlocks(blocks)
 		// Now update the directory node
 		delete(dnReal.Files, parts[len(parts)-1])
@@ -183,28 +181,20 @@ func (rfs *RootFileSystem) AppendFile(fileName string, contents []byte) error {
 	if err == nil {
 		// We need to find the last data block, and append to the data of that block so that it is filled up,
 		// then add any remaining data to a new data block
-		found := false
 		rfs.deliverMessage("Finding latest block")
 		var currentBlockId BlockNode
-		for !found {
-			if fn.Continuation == NilBlock {
-				if len(fn.Blocks) == 0 {
-					rfs.deliverMessage("There is no data, creating...")
-					currentBlockId = rfs.BlockHandler.GetFreeBlockNode(DATA)
-					currentData = make([]byte, 0, rfs.SuperBlock.BlockSize)
-					fn.Blocks = append(fn.Blocks, currentBlockId)
-					rfs.BlockHandler.SaveRawBlock(fn.Node, rawBlock(fn))
-				} else {
-					rfs.deliverMessage("Found last block")
-					currentBlockId = fn.Blocks[len(fn.Blocks)-1]
-					currentData = rfs.BlockHandler.GetRawBlock(currentBlockId)
-				}
-				found = true
-			} else {
-				rfs.deliverMessage("Looking at continuation")
-				fileBytes := rfs.BlockHandler.GetRawBlock(fn.Continuation)
-				fn = getFileNode(fileBytes)
-			}
+		if len(fn.DefaultRoute.DataBlockNames) == 0 {
+			rfs.deliverMessage("There is no data, creating...")
+			var keyName = "00000"
+			currentBlockId = rfs.BlockHandler.GetFreeDataBlockNode(fn.Node, keyName)
+			currentData = make([]byte, 0, rfs.SuperBlock.BlockSize)
+			fn.DataBlocks[keyName] = currentBlockId
+			fn.DefaultRoute.DataBlockNames = append(fn.DefaultRoute.DataBlockNames, keyName)
+			rfs.BlockHandler.SaveRawBlock(fn.Node, rawBlock(fn))
+		} else {
+			rfs.deliverMessage("Found last block")
+			currentBlockId = fn.DataBlocks[fn.DefaultRoute.DataBlockNames[len(fn.DefaultRoute.DataBlockNames)-1]]
+			currentData = rfs.BlockHandler.GetRawBlock(currentBlockId)
 		}
 		// Now fn will contain the appropriate filenode, and currentBlockId will be the currentBlockId to append to
 		currentData, contents = safeAppend(currentData, contents, rfs.SuperBlock.BlockSize)
@@ -239,16 +229,11 @@ func (rfs *RootFileSystem) saveNewData(fn *FileNode, contents []byte) {
 		} else {
 			toWrite = contents[i : i+rfs.SuperBlock.BlockSize]
 		}
-		if len(fn.Blocks) >= 20 { // Arbitary
-			newContNode := rfs.BlockHandler.GetFreeBlockNode(FILE)
-			newContFileNode := FileNode{Node: newContNode, Blocks: make([]BlockNode, 0), Continuation: NilBlock}
-			newContFileNode.Stats.setNow()
-			fn.Continuation = newContNode
-			rfs.BlockHandler.SaveRawBlock(fn.Node, rawBlock(fn))
-			fn = &newContFileNode
-		}
-		newDataNode := rfs.BlockHandler.GetFreeBlockNode(DATA)
-		fn.Blocks = append(fn.Blocks, newDataNode)
+
+		keyName := fmt.Sprintf("%d", i)
+		newDataNode := rfs.BlockHandler.GetFreeDataBlockNode(fn.Node, keyName)
+		fn.DataBlocks[keyName] = newDataNode
+		fn.DefaultRoute.DataBlockNames = append(fn.DefaultRoute.DataBlockNames, keyName)
 		fn.Stats.modified()
 		rfs.BlockHandler.SaveRawBlock(newDataNode, toWrite)
 	}
@@ -256,6 +241,17 @@ func (rfs *RootFileSystem) saveNewData(fn *FileNode, contents []byte) {
 	fn.Stats.modified()
 	rfs.BlockHandler.SaveRawBlock(fn.Node, rawBlock(fn))
 
+}
+
+func (fn *FileNode) getBlocksToFree() []BlockNode {
+	ret := make([]BlockNode, 10)
+	for _, v := range fn.DataBlocks {
+		ret = append(ret, v)
+	}
+	for _, v := range fn.AlternateRoutes {
+		ret = append(ret, v)
+	}
+	return ret
 }
 
 // Writes a file, creating if it doesn't exist, overwriting if it does
@@ -267,15 +263,7 @@ func (rfs *RootFileSystem) WriteFile(fileName string, contents []byte) error {
 	dn := getDirectoryNode(rawRoot)
 	fn, err := dn.findNode(parts[1:], rfs.BlockHandler, true)
 	if err == nil {
-		// Found the node, write data to node, overwriting any existing data (the node will be a filenode)
-		rfs.BlockHandler.FreeBlocks(fn.Blocks)
-		contin := fn.Continuation
-		for contin != NilBlock {
-			fileBytes := rfs.BlockHandler.GetRawBlock(contin)
-			fileNode := getFileNode(fileBytes)
-			rfs.BlockHandler.FreeBlocks(fileNode.Blocks)
-			contin = fileNode.Continuation
-		}
+		rfs.BlockHandler.FreeBlocks(fn.getBlocksToFree())
 
 		rfs.saveNewData(fn, contents)
 
@@ -313,18 +301,9 @@ func (rfs *RootFileSystem) ReadFile(fileName string) ([]byte, error) {
 
 	if err == nil {
 		buffer := new(bytes.Buffer)
-		done := false
-		for !done {
-			for i := range fn.Blocks {
-				data := rfs.BlockHandler.GetRawBlock(fn.Blocks[i])
-				buffer.Write(data)
-			}
-			if fn.Continuation == NilBlock {
-				done = true
-			} else {
-				fileBytes := rfs.BlockHandler.GetRawBlock(fn.Continuation)
-				fn = getFileNode(fileBytes)
-			}
+		for _, i := range fn.DefaultRoute.DataBlockNames {
+			data := rfs.BlockHandler.GetRawBlock(fn.DataBlocks[i])
+			buffer.Write(data)
 		}
 		return buffer.Bytes(), nil
 	} else {

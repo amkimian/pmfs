@@ -43,6 +43,15 @@ func (mfs *MemoryFileSystem) GetFreeBlockNode(NodeType fs.BlockNodeType) fs.Bloc
 	return node
 }
 
+func (mfs *MemoryFileSystem) GetFreeDataBlockNode(parent fs.BlockNode, key string) fs.BlockNode {
+	var node fs.BlockNode
+	node.Type = fs.DATA
+	node.RelativeTo = parent.Id
+	node.Id = mfs.UnusedNodeStart
+	mfs.UnusedNodeStart = mfs.UnusedNodeStart + 1
+	return node
+}
+
 func (mfs *MemoryFileSystem) GetRawBlock(node fs.BlockNode) []byte {
 	return mfs.Blocks[node]
 }

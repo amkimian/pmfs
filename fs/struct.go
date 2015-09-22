@@ -35,15 +35,16 @@ type RootFileSystem struct {
 
 // A BlockNode has a type and a unique id in the filesystem
 type BlockNode struct {
-	Type BlockNodeType
-	Id   int
+	RelativeTo int
+	Type       BlockNodeType
+	Id         int
 }
 
 // The NilBlock is used to represent "no node"
-var NilBlock BlockNode = BlockNode{NIL, -1}
+var NilBlock BlockNode = BlockNode{-1, NIL, -1}
 
 // The SuperBlock block node is always at position 0 in the filesystem
-var SuperBlock BlockNode = BlockNode{SUPERBLOCK, 0}
+var SuperBlock BlockNode = BlockNode{-1, SUPERBLOCK, 0}
 
 // This contains permissions and stats about a directory or file
 type FileStats struct {
@@ -80,13 +81,20 @@ type SuperBlockNode struct {
 	RootDirectory BlockNode
 }
 
+type DataRoute struct {
+	Node           BlockNode // for the default route this will be the null node
+	RouteName      string
+	DataBlockNames []string
+}
+
 // A FileNode contains information about a file in a file system (which may contain "special" data depending on its type)
 type FileNode struct {
-	Node         BlockNode
-	Stats        FileStats
-	Type         FileType
-	Blocks       []BlockNode
-	Continuation BlockNode
+	Node            BlockNode
+	Stats           FileStats
+	Type            FileType
+	DataBlocks      map[string]BlockNode // The key is the block id within this file. For some file types we manage this, for others the user does
+	DefaultRoute    DataRoute
+	AlternateRoutes map[string]BlockNode // The block node points to a data structure containing a DataRoute
 }
 
 // The storage for a file system must implement this
@@ -94,6 +102,7 @@ type BlockHandler interface {
 	Init(configuration string)
 	Format(blockCount int, blockSize int)
 	GetFreeBlockNode(NodeType BlockNodeType) BlockNode
+	GetFreeDataBlockNode(parent BlockNode, id string) BlockNode
 	GetRawBlock(node BlockNode) []byte
 	SaveRawBlock(node BlockNode, data []byte) BlockNode
 	FreeBlocks(blocks []BlockNode)
