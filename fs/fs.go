@@ -14,6 +14,7 @@ func (rfs *RootFileSystem) Init(handler BlockHandler, configuration string) {
 	rfs.Configuration = configuration
 	rfs.BlockHandler.Init(configuration)
 	rfs.Notification = make(chan string)
+	rfs.ChangeCache.Init(rfs)
 }
 
 // Dump to std out information about this filesystem (system specific)
@@ -41,8 +42,8 @@ func (rfs *RootFileSystem) Format(bc int, bs int) {
 func (rfs *RootFileSystem) ListDirectory(path string) ([]string, error) {
 	// As a test, simply return the names of things at this path. Later on we'll return a structure that defines names, types and stats
 
-	rawRoot := rfs.BlockHandler.GetRawBlock(rfs.SuperBlock.RootDirectory)
-	dn := getDirectoryNode(rawRoot)
+	dn, _ := rfs.ChangeCache.GetDirectoryNode(rfs.SuperBlock.RootDirectory)
+
 	var dnReal *DirectoryNode
 	var err error
 
@@ -50,7 +51,7 @@ func (rfs *RootFileSystem) ListDirectory(path string) ([]string, error) {
 		dnReal = dn
 	} else {
 		parts := strings.Split(path, "/")
-		dnReal, err = dn.findDirectoryNode(parts[1:], rfs.BlockHandler)
+		dnReal, err = dn.findDirectoryNode(parts[1:], rfs)
 		// And now get the names of things and add them to "entries"
 		// for now, don't do the continuation
 		if err != nil {
@@ -88,8 +89,8 @@ func (rfs *RootFileSystem) DeleteFile(fileName string) error {
 	parts := strings.Split(fileName, "/")
 	rawRoot := rfs.BlockHandler.GetRawBlock(rfs.SuperBlock.RootDirectory)
 	dn := getDirectoryNode(rawRoot)
-	fn, err := dn.findNode(parts[1:], rfs.BlockHandler, false)
-	dnReal, err2 := dn.findDirectoryNode(parts[1:len(parts)-1], rfs.BlockHandler)
+	fn, err := dn.findNode(parts[1:], rfs, false)
+	dnReal, err2 := dn.findDirectoryNode(parts[1:len(parts)-1], rfs)
 	if err == nil && err2 == nil {
 		rfs.deliverMessage("Removing blocks")
 		blocks := make([]BlockNode, 0)
@@ -123,7 +124,7 @@ func (rfs *RootFileSystem) MoveFileOrFolder(source string, target string) error 
 	dn := getDirectoryNode(rawRoot)
 	rfs.deliverMessage(fmt.Sprintf("Searching for source, parts is %v", parts))
 	rfs.deliverMessage(fmt.Sprintf("Folders are %v", dn.Folders))
-	sourceNode, err := dn.findParentDirectoryNode(parts[1:], rfs.BlockHandler, false)
+	sourceNode, err := dn.findParentDirectoryNode(parts[1:], rfs, false)
 	if err != nil {
 		return err
 	} else {
@@ -139,7 +140,7 @@ func (rfs *RootFileSystem) MoveFileOrFolder(source string, target string) error 
 		}
 		targPaths := strings.Split(target, "/")
 		lastTargName := targPaths[len(targPaths)-1]
-		targetNode, err2 := dn.findParentDirectoryNode(targPaths[1:], rfs.BlockHandler, true)
+		targetNode, err2 := dn.findParentDirectoryNode(targPaths[1:], rfs, true)
 		if err2 != nil {
 			return errors.New("Could not create or find target")
 		}
@@ -293,9 +294,8 @@ func (rfs *RootFileSystem) StatFile(fileName string) (*FileNode, error) {
 
 func (rfs *RootFileSystem) retrieveFn(fileName string, createNew bool) (*FileNode, error) {
 	parts := strings.Split(fileName, "/")
-	rawRoot := rfs.BlockHandler.GetRawBlock(rfs.SuperBlock.RootDirectory)
-	dn := getDirectoryNode(rawRoot)
-	return dn.findNode(parts[1:], rfs.BlockHandler, createNew)
+	dn, _ := rfs.ChangeCache.GetDirectoryNode(rfs.SuperBlock.RootDirectory)
+	return dn.findNode(parts[1:], rfs, createNew)
 }
 
 // Read all of the contents of the given file

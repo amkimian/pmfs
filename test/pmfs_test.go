@@ -17,7 +17,7 @@ func statFile(name string) {
 	if e2 != nil {
 		fmt.Println(e2)
 	} else {
-		fmt.Printf("File %s, Size: %d\nCreated : %v\nModified : %v\nAccessed : %v\n", name, stats.Size, stats.Created, stats.Modified, stats.Accessed)
+		fmt.Printf("File %s, Size: %d\nCreated : %v\nModified : %v\nAccessed : %v\n", name, stats.Stats.Size, stats.Stats.Created, stats.Stats.Modified, stats.Stats.Accessed)
 	}
 }
 
@@ -34,17 +34,22 @@ func contentsFile(name string) (string, error) {
 
 func dir(path string) int {
 	names, _ := f.ListDirectory(path)
+	fmt.Printf("Directory of %s\n", path)
+	for y := range names {
+		fmt.Println(names[y])
+	}
 	return len(names)
-	//fmt.Printf("Directory of %s\n", path)
-	//for y := range names {
-	//	fmt.Println(names[y])
-	//}
 }
 
 func TestMain(m *testing.M) {
 
 	f.Init(&mh, "")
 	f.Format(100, 100)
+	go func() {
+		for m := range f.Notification {
+			fmt.Println(m)
+		}
+	}()
 	os.Exit(m.Run())
 }
 
@@ -84,8 +89,8 @@ func TestSecondWrite(m *testing.T) {
 }
 
 func TestReadBoth(m *testing.T) {
-	//statFile("/fred/other")
-	//statFile("/fred/alan")
+	statFile("/fred/other")
+	statFile("/fred/alan")
 }
 
 func TestLoadsOfWrites(m *testing.T) {
@@ -116,7 +121,7 @@ func TestMultiBlockFile(m *testing.T) {
 		buffer.WriteString("A reasonably long string \n")
 	}
 	f.WriteFile("/large/1", buffer.Bytes())
-	//statFile("/large/1")
+	statFile("/large/1")
 	contentsFile("/large/1")
 }
 

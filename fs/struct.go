@@ -31,6 +31,7 @@ type RootFileSystem struct {
 	Configuration string
 	SuperBlock    SuperBlockNode
 	Notification  chan string
+	ChangeCache   Cache
 }
 
 // A BlockNode has a type and a unique id in the filesystem
