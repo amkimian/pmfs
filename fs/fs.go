@@ -143,6 +143,7 @@ func (rfs *RootFileSystem) MoveFileOrFolder(source string, target string) error 
 		if err2 != nil {
 			return errors.New("Could not create or find target")
 		}
+		withinNode := false
 		if isFolderMove {
 			_, alreadyExists := targetNode.Folders[lastTargName]
 			if alreadyExists {
@@ -158,14 +159,21 @@ func (rfs *RootFileSystem) MoveFileOrFolder(source string, target string) error 
 				return errors.New("Target file already exists")
 			} else {
 				// Move file
-				rfs.deliverMessage(fmt.Sprintf("Source Node Files before %v", sourceNode.Files))
+				if sourceNode.Node.Id == targetNode.Node.Id {
+					withinNode = true
+				}
 				targetNode.Files[lastTargName] = blockId
-				delete(sourceNode.Files, lastName)
-				rfs.deliverMessage(fmt.Sprintf("Source Node After before %v", sourceNode.Files))
+				if withinNode {
+					delete(targetNode.Files, lastName)
+				} else {
+					delete(sourceNode.Files, lastName)
+				}
 			}
 		}
 		// Now save them
-		rfs.BlockHandler.SaveRawBlock(sourceNode.Node, rawBlock(sourceNode))
+		if !withinNode {
+			rfs.BlockHandler.SaveRawBlock(sourceNode.Node, rawBlock(sourceNode))
+		}
 		rfs.BlockHandler.SaveRawBlock(targetNode.Node, rawBlock(targetNode))
 		return nil
 	}
@@ -173,10 +181,8 @@ func (rfs *RootFileSystem) MoveFileOrFolder(source string, target string) error 
 
 // Appends the content to the given file, creating the file if it doesn't exist
 func (rfs *RootFileSystem) AppendFile(fileName string, contents []byte) error {
-	parts := strings.Split(fileName, "/")
-	rawRoot := rfs.BlockHandler.GetRawBlock(rfs.SuperBlock.RootDirectory)
-	dn := getDirectoryNode(rawRoot)
-	fn, err := dn.findNode(parts[1:], rfs.BlockHandler, true)
+	fn, err := rfs.retrieveFn(fileName, true)
+
 	var currentData []byte
 	if err == nil {
 		// We need to find the last data block, and append to the data of that block so that it is filled up,
@@ -230,7 +236,7 @@ func (rfs *RootFileSystem) saveNewData(fn *FileNode, contents []byte) {
 			toWrite = contents[i : i+rfs.SuperBlock.BlockSize]
 		}
 
-		keyName := fmt.Sprintf("%d", i)
+		keyName := fmt.Sprintf("%05d", i)
 		newDataNode := rfs.BlockHandler.GetFreeDataBlockNode(fn.Node, keyName)
 		fn.DataBlocks[keyName] = newDataNode
 		fn.DefaultRoute.DataBlockNames = append(fn.DefaultRoute.DataBlockNames, keyName)
@@ -258,10 +264,8 @@ func (fn *FileNode) getBlocksToFree() []BlockNode {
 func (rfs *RootFileSystem) WriteFile(fileName string, contents []byte) error {
 	// Find record for this fileName from RootFileSystem
 	// After splitting on /
-	parts := strings.Split(fileName, "/")
-	rawRoot := rfs.BlockHandler.GetRawBlock(rfs.SuperBlock.RootDirectory)
-	dn := getDirectoryNode(rawRoot)
-	fn, err := dn.findNode(parts[1:], rfs.BlockHandler, true)
+	fn, err := rfs.retrieveFn(fileName, true)
+
 	if err == nil {
 		rfs.BlockHandler.FreeBlocks(fn.getBlocksToFree())
 
@@ -269,6 +273,7 @@ func (rfs *RootFileSystem) WriteFile(fileName string, contents []byte) error {
 
 		return nil
 	} else {
+		rfs.deliverMessage("Could not get file node")
 		// Something went wrong, what to do? (probably propogate the error)
 		return err
 	}
@@ -277,15 +282,20 @@ func (rfs *RootFileSystem) WriteFile(fileName string, contents []byte) error {
 
 // Return the stats of the passed file
 func (rfs *RootFileSystem) StatFile(fileName string) (*FileNode, error) {
-	parts := strings.Split(fileName, "/")
-	rawRoot := rfs.BlockHandler.GetRawBlock(rfs.SuperBlock.RootDirectory)
-	dn := getDirectoryNode(rawRoot)
-	fn, err := dn.findNode(parts[1:], rfs.BlockHandler, false)
+	fn, err := rfs.retrieveFn(fileName, false)
+
 	if err == nil {
 		return fn, nil
 	} else {
 		return nil, err
 	}
+}
+
+func (rfs *RootFileSystem) retrieveFn(fileName string, createNew bool) (*FileNode, error) {
+	parts := strings.Split(fileName, "/")
+	rawRoot := rfs.BlockHandler.GetRawBlock(rfs.SuperBlock.RootDirectory)
+	dn := getDirectoryNode(rawRoot)
+	return dn.findNode(parts[1:], rfs.BlockHandler, createNew)
 }
 
 // Read all of the contents of the given file
@@ -294,10 +304,7 @@ func (rfs *RootFileSystem) ReadFile(fileName string) ([]byte, error) {
 	// Load that up, and read from the Blocks, appending to a single bytebuffer and then return that
 	// If the ContinuationNode is set, load that one and carry on there
 
-	parts := strings.Split(fileName, "/")
-	rawRoot := rfs.BlockHandler.GetRawBlock(rfs.SuperBlock.RootDirectory)
-	dn := getDirectoryNode(rawRoot)
-	fn, err := dn.findNode(parts[1:], rfs.BlockHandler, false)
+	fn, err := rfs.retrieveFn(fileName, false)
 
 	if err == nil {
 		buffer := new(bytes.Buffer)

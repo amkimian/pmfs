@@ -66,11 +66,20 @@ func executeCat(parameters []string, remainingCommand string, executor *ShellExe
 
 func executeStat(parameters []string, remainingCommand string, executor *ShellExecutor) []string {
 	filePath := util.ResolvePath(executor.Cwd, parameters[0])
-	fileNode, _ := executor.Rfs.StatFile(filePath)
-	fullString := fmt.Sprintf("Size : %d\nAccessed : %v\nCreated  : %v\nModified : %v\n", fileNode.Stats.Size, fileNode.Stats.Accessed, fileNode.Stats.Created, fileNode.Stats.Modified)
-	return strings.Split(fullString, "\n")
+	fileNode, err := executor.Rfs.StatFile(filePath)
+	if err == nil {
+		fullString := fmt.Sprintf("Size : %d\nAccessed : %v\nCreated  : %v\nModified : %v\nBlocks: %v\nDefault Route: %v\n", fileNode.Stats.Size, fileNode.Stats.Accessed, fileNode.Stats.Created, fileNode.Stats.Modified, fileNode.DataBlocks, fileNode.DefaultRoute)
+		return strings.Split(fullString, "\n")
+	} else {
+		return makeError(err)
+	}
 }
 
+func makeError(err error) []string {
+	ret := make([]string, 1)
+	ret[0] = fmt.Sprintf("%v", err)
+	return ret
+}
 func executeRm(parameters []string, remainingCommand string, executor *ShellExecutor) []string {
 	filePath := util.ResolvePath(executor.Cwd, parameters[0])
 	executor.Rfs.DeleteFile(filePath)
