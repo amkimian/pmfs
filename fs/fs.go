@@ -87,14 +87,13 @@ func (rfs *RootFileSystem) deliverMessage(msg string) {
 // Delete the contents (that the fileName points to)
 func (rfs *RootFileSystem) DeleteFile(fileName string) error {
 	parts := strings.Split(fileName, "/")
-	rawRoot := rfs.BlockHandler.GetRawBlock(rfs.SuperBlock.RootDirectory)
-	dn := getDirectoryNode(rawRoot)
+	dn, _ := rfs.ChangeCache.GetDirectoryNode(rfs.SuperBlock.RootDirectory)
 	fn, err := dn.findNode(parts[1:], rfs, false)
 	dnReal, err2 := dn.findDirectoryNode(parts[1:len(parts)-1], rfs)
 	if err == nil && err2 == nil {
 		rfs.deliverMessage("Removing blocks")
 		blocks := make([]BlockNode, 0)
-		blocks = append(blocks, fn.Node)
+		//blocks = append(blocks, fn.Node)
 		for _, v := range fn.DataBlocks {
 			blocks = append(blocks, v)
 		}
@@ -105,6 +104,7 @@ func (rfs *RootFileSystem) DeleteFile(fileName string) error {
 		rfs.BlockHandler.FreeBlocks(blocks)
 		// Now update the directory node
 		delete(dnReal.Files, parts[len(parts)-1])
+		rfs.ChangeCache.DeleteFileNode(fn)
 		rfs.ChangeCache.SaveDirectoryNode(dnReal)
 
 		return nil
