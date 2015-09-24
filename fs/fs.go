@@ -105,7 +105,7 @@ func (rfs *RootFileSystem) DeleteFile(fileName string) error {
 		rfs.BlockHandler.FreeBlocks(blocks)
 		// Now update the directory node
 		delete(dnReal.Files, parts[len(parts)-1])
-		rfs.BlockHandler.SaveRawBlock(dnReal.Node, rawBlock(dnReal))
+		rfs.ChangeCache.SaveDirectoryNode(dnReal)
 
 		return nil
 	}
@@ -173,9 +173,9 @@ func (rfs *RootFileSystem) MoveFileOrFolder(source string, target string) error 
 		}
 		// Now save them
 		if !withinNode {
-			rfs.BlockHandler.SaveRawBlock(sourceNode.Node, rawBlock(sourceNode))
+			rfs.ChangeCache.SaveDirectoryNode(sourceNode)
 		}
-		rfs.BlockHandler.SaveRawBlock(targetNode.Node, rawBlock(targetNode))
+		rfs.ChangeCache.SaveDirectoryNode(targetNode)
 		return nil
 	}
 }
@@ -197,7 +197,7 @@ func (rfs *RootFileSystem) AppendFile(fileName string, contents []byte) error {
 			currentData = make([]byte, 0, rfs.SuperBlock.BlockSize)
 			fn.DataBlocks[keyName] = currentBlockId
 			fn.DefaultRoute.DataBlockNames = append(fn.DefaultRoute.DataBlockNames, keyName)
-			rfs.BlockHandler.SaveRawBlock(fn.Node, rawBlock(fn))
+			rfs.ChangeCache.SaveFileNode(fn)
 		} else {
 			rfs.deliverMessage("Found last block")
 			currentBlockId = fn.DataBlocks[fn.DefaultRoute.DataBlockNames[len(fn.DefaultRoute.DataBlockNames)-1]]
@@ -246,8 +246,7 @@ func (rfs *RootFileSystem) saveNewData(fn *FileNode, contents []byte) {
 	}
 
 	fn.Stats.modified()
-	rfs.BlockHandler.SaveRawBlock(fn.Node, rawBlock(fn))
-
+	rfs.ChangeCache.SaveFileNode(fn)
 }
 
 func (fn *FileNode) getBlocksToFree() []BlockNode {

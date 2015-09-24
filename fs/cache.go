@@ -30,18 +30,64 @@ func (c *Cache) Init(fs *RootFileSystem) {
 	c.Fs = fs
 }
 
+// Retrieve a file node from either the cache or the FileSystem
+func (c *Cache) GetFileNode(nodeId BlockNode) (*FileNode, error) {
+	entry, ok := c.EntryMap[nodeId]
+	var fileNode *FileNode
+	if !ok {
+		c.Fs.deliverMessage("Put file in cache")
+		rawData := c.Fs.BlockHandler.GetRawBlock(nodeId)
+		fn := getFileNode(rawData)
+		newEntry := CacheEntry{nodeId, false, NONE, fn}
+		c.EntryMap[nodeId] = newEntry
+		return fn, nil
+	} else {
+		c.Fs.deliverMessage("Serve file from cache")
+		fileNode = entry.entry.(*FileNode)
+		return fileNode, nil
+	}
+}
+
 // Retrieve a directory node from either the cache or the FileSystem
 func (c *Cache) GetDirectoryNode(nodeId BlockNode) (*DirectoryNode, error) {
 	entry, ok := c.EntryMap[nodeId]
 	var dirNode *DirectoryNode
 	if !ok {
+		c.Fs.deliverMessage("Put dir in cache")
 		rawData := c.Fs.BlockHandler.GetRawBlock(nodeId)
 		dn := getDirectoryNode(rawData)
 		newEntry := CacheEntry{nodeId, false, NONE, dn}
 		c.EntryMap[nodeId] = newEntry
 		return dn, nil
 	} else {
+		c.Fs.deliverMessage("Serve dir from cache")
 		dirNode = entry.entry.(*DirectoryNode)
 		return dirNode, nil
 	}
+}
+
+func (c *Cache) SaveDirectoryNode(dirNode *DirectoryNode) error {
+	entry, ok := c.EntryMap[dirNode.Node]
+	if !ok {
+		newEntry := CacheEntry{dirNode.Node, true, UPDATE, dirNode}
+		c.EntryMap[dirNode.Node] = newEntry
+	} else {
+		entry.dirty = true
+		entry.action = UPDATE
+		entry.entry = dirNode
+	}
+	return nil
+}
+
+func (c *Cache) SaveFileNode(fileNode *FileNode) error {
+	entry, ok := c.EntryMap[fileNode.Node]
+	if !ok {
+		newEntry := CacheEntry{fileNode.Node, true, UPDATE, fileNode}
+		c.EntryMap[fileNode.Node] = newEntry
+	} else {
+		entry.dirty = true
+		entry.action = UPDATE
+		entry.entry = fileNode
+	}
+	return nil
 }

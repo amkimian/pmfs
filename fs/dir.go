@@ -19,7 +19,8 @@ func (dn *DirectoryNode) findParentDirectoryNode(paths []string, rfs *RootFileSy
 			return nil, errors.New("Parent Folder not found")
 		}
 	} else {
-		dirNode = getDirectoryNode(rfs.BlockHandler.GetRawBlock(nodeId))
+
+		dirNode, _ = rfs.ChangeCache.GetDirectoryNode(nodeId)
 	}
 	if len(paths) == 2 {
 		return dirNode, nil
@@ -34,9 +35,10 @@ func (dn *DirectoryNode) findDirectoryNode(paths []string, rfs *RootFileSystem) 
 	if !ok {
 		return nil, errors.New("Folder not found")
 	} else {
-		dirNode = getDirectoryNode(rfs.BlockHandler.GetRawBlock(nodeId))
+		var err error
+		dirNode, err = rfs.ChangeCache.GetDirectoryNode(nodeId)
 		if len(paths) == 1 {
-			return dirNode, nil
+			return dirNode, err
 		} else {
 			return dirNode.findDirectoryNode(paths[1:], rfs)
 		}
@@ -47,9 +49,9 @@ func (dn *DirectoryNode) createSubDirectory(name string, rfs *RootFileSystem) *D
 	newDnId := rfs.BlockHandler.GetFreeBlockNode(DIRECTORY)
 	newDn := &DirectoryNode{Node: newDnId, Folders: make(map[string]BlockNode), Files: make(map[string]BlockNode), Continuation: NilBlock}
 	newDn.Stats.setNow()
-	rfs.BlockHandler.SaveRawBlock(newDnId, rawBlock(newDn))
+	rfs.ChangeCache.SaveDirectoryNode(newDn)
 	dn.Folders[name] = newDnId
-	rfs.BlockHandler.SaveRawBlock(dn.Node, rawBlock(dn))
+	rfs.ChangeCache.SaveDirectoryNode(dn)
 	return newDn
 }
 
@@ -57,9 +59,9 @@ func (dn *DirectoryNode) createNewFile(name string, rfs *RootFileSystem) *FileNo
 	nodeId := rfs.BlockHandler.GetFreeBlockNode(FILE)
 	fileNode := &FileNode{Node: nodeId, DataBlocks: make(map[string]BlockNode, 0), AlternateRoutes: make(map[string]BlockNode, 0)}
 	fileNode.Stats.setNow()
-	rfs.BlockHandler.SaveRawBlock(nodeId, rawBlock(fileNode))
+	rfs.ChangeCache.SaveFileNode(fileNode)
 	dn.Files[name] = nodeId
-	rfs.BlockHandler.SaveRawBlock(dn.Node, rawBlock(dn))
+	rfs.ChangeCache.SaveDirectoryNode(dn)
 	return fileNode
 }
 
@@ -75,7 +77,7 @@ func (dn *DirectoryNode) findNode(paths []string, rfs *RootFileSystem, createFil
 				return nil, errors.New("File not found")
 			}
 		} else {
-			return getFileNode(rfs.BlockHandler.GetRawBlock(nodeId)), nil
+			return rfs.ChangeCache.GetFileNode(nodeId)
 		}
 	} else {
 		// This should look in the directories section and create a new directory node if that does not exist (depending on createFileNode)
@@ -89,7 +91,7 @@ func (dn *DirectoryNode) findNode(paths []string, rfs *RootFileSystem, createFil
 				return nil, errors.New("Directory not found")
 			}
 		} else {
-			newDn = getDirectoryNode(rfs.BlockHandler.GetRawBlock(newDnId))
+			newDn, _ = rfs.ChangeCache.GetDirectoryNode(newDnId)
 		}
 
 		return newDn.findNode(paths[1:], rfs, createFileNode)

@@ -63,6 +63,7 @@ func (d *DrawContext) addMessageHistory(msg string) {
 		clearArea(d.msgColumn+len(d.msgHistory[i]), d.outputArea+i, d.width-1, d.outputArea+i+1)
 	}
 	clearArea(d.msgColumn, d.outputArea+len(d.msgHistory), d.width-1, d.entryLine-2)
+	termbox.Flush()
 }
 
 func (d *DrawContext) setDimensions(width int, height int) {
