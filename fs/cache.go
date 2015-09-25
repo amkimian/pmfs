@@ -27,14 +27,14 @@ type CacheEntry struct {
 }
 
 type Cache struct {
-	EntryMap map[BlockNode]CacheEntry
+	EntryMap map[BlockNode]*CacheEntry
 	Fs       *RootFileSystem
 	c        chan BlockNode
 	rwmutex  sync.RWMutex
 }
 
 func (c *Cache) Init(fs *RootFileSystem) {
-	c.EntryMap = make(map[BlockNode]CacheEntry)
+	c.EntryMap = make(map[BlockNode]*CacheEntry)
 	c.Fs = fs
 	c.c = make(chan BlockNode)
 	go cacheManager(c)
@@ -56,18 +56,21 @@ func cacheManager(cache *Cache) {
 			// Peform the activity for the entry in the cache
 			entry, ok := cache.EntryMap[id]
 			if ok {
+				//cache.rwmutex.Lock()
 				if entry.action == UPDATE {
 					cache.Fs.deliverMessage("Cache save to fs")
 					cache.Fs.BlockHandler.SaveRawBlock(id, rawBlock(entry.entry))
 					entry.dirty = false
+					cache.EntryMap[id] = entry
 				} else if entry.action == DELETE {
 					cache.Fs.deliverMessage("Cache delete from fs")
 					blocks := make([]BlockNode, 1)
 					blocks[0] = entry.Node
 					cache.Fs.BlockHandler.FreeBlocks(blocks)
 					entry.dirty = false
-
+					cache.EntryMap[id] = entry
 				}
+				//cache.rwmutex.Unlock()
 			}
 		case <-timer:
 			// Do clean up work
@@ -94,7 +97,7 @@ func (c *Cache) GetFileNode(nodeId BlockNode) (*FileNode, error) {
 		fn := getFileNode(rawData)
 		newEntry := CacheEntry{nodeId, false, NONE, fn}
 		c.rwmutex.Lock()
-		c.EntryMap[nodeId] = newEntry
+		c.EntryMap[nodeId] = &newEntry
 		c.rwmutex.Unlock()
 		return fn, nil
 	} else {
@@ -118,7 +121,7 @@ func (c *Cache) GetDirectoryNode(nodeId BlockNode) (*DirectoryNode, error) {
 		dn := getDirectoryNode(rawData)
 		newEntry := CacheEntry{nodeId, false, NONE, dn}
 		c.rwmutex.Lock()
-		c.EntryMap[nodeId] = newEntry
+		c.EntryMap[nodeId] = &newEntry
 		c.rwmutex.Unlock()
 		return dn, nil
 	} else {
@@ -133,7 +136,7 @@ func (c *Cache) SaveDirectoryNode(dirNode *DirectoryNode) error {
 	c.rwmutex.Lock()
 	if !ok {
 		newEntry := CacheEntry{dirNode.Node, true, UPDATE, dirNode}
-		c.EntryMap[dirNode.Node] = newEntry
+		c.EntryMap[dirNode.Node] = &newEntry
 	} else {
 		entry.dirty = true
 		entry.action = UPDATE
@@ -151,7 +154,7 @@ func (c *Cache) DeleteFileNode(fileNode *FileNode) {
 
 	if !ok {
 		newEntry := CacheEntry{fileNode.Node, true, DELETE, fileNode}
-		c.EntryMap[fileNode.Node] = newEntry
+		c.EntryMap[fileNode.Node] = &newEntry
 	} else {
 		entry.dirty = true
 		entry.action = DELETE
@@ -167,7 +170,7 @@ func (c *Cache) SaveFileNode(fileNode *FileNode) error {
 	c.rwmutex.Lock()
 	if !ok {
 		newEntry := CacheEntry{fileNode.Node, true, UPDATE, fileNode}
-		c.EntryMap[fileNode.Node] = newEntry
+		c.EntryMap[fileNode.Node] = &newEntry
 	} else {
 		entry.dirty = true
 		entry.action = UPDATE
