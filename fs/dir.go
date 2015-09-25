@@ -57,7 +57,7 @@ func (dn *DirectoryNode) createSubDirectory(name string, rfs *RootFileSystem) *D
 
 func (dn *DirectoryNode) createNewFile(name string, rfs *RootFileSystem) *FileNode {
 	nodeId := rfs.BlockHandler.GetFreeBlockNode(FILE)
-	fileNode := &FileNode{Node: nodeId, DataBlocks: make(map[string]BlockNode, 0), AlternateRoutes: make(map[string]BlockNode, 0)}
+	fileNode := &FileNode{Node: nodeId, DataBlocks: make(map[string]BlockNode, 0), AlternateRoutes: make(map[string]BlockNode, 0), Version: 0}
 	fileNode.Stats.setNow()
 	rfs.ChangeCache.SaveFileNode(fileNode)
 	dn.Files[name] = nodeId

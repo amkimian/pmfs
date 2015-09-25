@@ -17,6 +17,16 @@ var parserCommands = map[string]ParserCommand{
 	"stat":       ParserCommand{1, executeStat},
 	"rm":         ParserCommand{1, executeRm},
 	"mv":         ParserCommand{2, executeMv},
+	"tags":       ParserCommand{1, executeTags},
+}
+
+func executeTags(parameters []string, remainingCommand string, executor *ShellExecutor) []string {
+	filePath := util.ResolvePath(executor.Cwd, parameters[0])
+	verList, err := executor.Rfs.GetTags(filePath)
+	if err != nil {
+		return makeError(err)
+	}
+	return verList
 }
 
 func executeCD(parameters []string, remainingCommand string, executor *ShellExecutor) []string {

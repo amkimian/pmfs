@@ -10,6 +10,7 @@ const (
 	SUPERBLOCK BlockNodeType = iota
 	DIRECTORY
 	FILE
+	ROUTE
 	DATA
 	NIL
 )
@@ -96,6 +97,7 @@ type FileNode struct {
 	DataBlocks      map[string]BlockNode // The key is the block id within this file. For some file types we manage this, for others the user does
 	DefaultRoute    DataRoute
 	AlternateRoutes map[string]BlockNode // The block node points to a data structure containing a DataRoute
+	Version         int
 }
 
 // The storage for a file system must implement this

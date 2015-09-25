@@ -4,7 +4,8 @@ Some notes on what needs to be done for pmfs
 Copy File (do this at the block level really - and between file systems potentially - it's really a series of append file calls for each block)
 Create file of a given type (which can also be used to create a mountable file)
 Handling traversal of mounted filesystems
-Upper side caching of nodes, channel to sync updates, non-removal of cached items that are not synced
+(DONE) Upper side caching of nodes, channel to sync updates, non-removal of cached items that are not synced
+Caching of data nodes (treat data nodes separately)
 Series files (pass inode and key/value to underlying)
 Tags (filesystem based tagname -> key/value (and path or inode?), with the ability to search, order, filter etc.)
     e.g.   Color -> Red -> [ /one/two, /three/four]

@@ -72,18 +72,6 @@ func (rfs *RootFileSystem) ListDirectory(path string) ([]string, error) {
 	return entries, nil
 }
 
-func getKeys(maps map[string]BlockNode) []string {
-	keys := make([]string, 0, len(maps))
-	for k := range maps {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-func (rfs *RootFileSystem) deliverMessage(msg string) {
-	rfs.Notification <- msg
-}
-
 // Delete the contents (that the fileName points to)
 func (rfs *RootFileSystem) DeleteFile(fileName string) error {
 	parts := strings.Split(fileName, "/")
@@ -184,80 +172,34 @@ func (rfs *RootFileSystem) MoveFileOrFolder(source string, target string) error 
 func (rfs *RootFileSystem) AppendFile(fileName string, contents []byte) error {
 	fn, err := rfs.retrieveFn(fileName, true)
 
-	var currentData []byte
 	if err == nil {
 		// We need to find the last data block, and append to the data of that block so that it is filled up,
 		// then add any remaining data to a new data block
-		rfs.deliverMessage("Finding latest block")
-		var currentBlockId BlockNode
-		if len(fn.DefaultRoute.DataBlockNames) == 0 {
-			rfs.deliverMessage("There is no data, creating...")
-			var keyName = "00000"
-			currentBlockId = rfs.BlockHandler.GetFreeDataBlockNode(fn.Node, keyName)
-			currentData = make([]byte, 0, rfs.SuperBlock.BlockSize)
-			fn.DataBlocks[keyName] = currentBlockId
-			fn.DefaultRoute.DataBlockNames = append(fn.DefaultRoute.DataBlockNames, keyName)
-			rfs.ChangeCache.SaveFileNode(fn)
-		} else {
-			rfs.deliverMessage("Found last block")
-			currentBlockId = fn.DataBlocks[fn.DefaultRoute.DataBlockNames[len(fn.DefaultRoute.DataBlockNames)-1]]
-			currentData = rfs.BlockHandler.GetRawBlock(currentBlockId)
-		}
-		// Now fn will contain the appropriate filenode, and currentBlockId will be the currentBlockId to append to
-		currentData, contents = safeAppend(currentData, contents, rfs.SuperBlock.BlockSize)
-		rfs.deliverMessage("Saving data")
-		rfs.BlockHandler.SaveRawBlock(currentBlockId, currentData)
-		if len(contents) != 0 {
-			rfs.saveNewData(fn, contents)
-		}
+		// NEW - for versioning
+		// We always append a new block (or blocks) for this data, the old route will be preserved
+		// in the routes information. After appending the blocks, we update the DefaultRoute and copy the
+		// DefaultRoute into the new version in the version route information
+
+		rfs.saveNewData(fn, contents)
+
 	} else {
 		return err
 	}
 	return nil
 }
 
-func safeAppend(target []byte, source []byte, maxSize int) ([]byte, []byte) {
-	lt := len(target)
-	toCopy := cap(target) - lt
-	if toCopy > len(source) {
-		toCopy = len(source)
-	}
-	target = append(target, source[0:toCopy]...)
-	return target, source[toCopy:]
-}
+// Retrieves the version tags
+func (rfs *RootFileSystem) GetTags(fileName string) ([]string, error) {
+	fn, err := rfs.retrieveFn(fileName, false)
 
-func (rfs *RootFileSystem) saveNewData(fn *FileNode, contents []byte) {
-
-	fn.Stats.Size = len(contents)
-	for i := 0; i < len(contents); i = i + rfs.SuperBlock.BlockSize {
-		var toWrite []byte
-		if i+rfs.SuperBlock.BlockSize > len(contents) {
-			toWrite = contents[i:]
-		} else {
-			toWrite = contents[i : i+rfs.SuperBlock.BlockSize]
+	if err == nil {
+		ret := make([]string, len(fn.AlternateRoutes), len(fn.AlternateRoutes))
+		for k, _ := range fn.AlternateRoutes {
+			ret = append(ret, k)
 		}
-
-		keyName := fmt.Sprintf("%05d", i)
-		newDataNode := rfs.BlockHandler.GetFreeDataBlockNode(fn.Node, keyName)
-		fn.DataBlocks[keyName] = newDataNode
-		fn.DefaultRoute.DataBlockNames = append(fn.DefaultRoute.DataBlockNames, keyName)
-		fn.Stats.modified()
-		rfs.BlockHandler.SaveRawBlock(newDataNode, toWrite)
+		return ret, nil
 	}
-
-	fn.Stats.modified()
-	rfs.ChangeCache.SaveFileNode(fn)
-}
-
-func (fn *FileNode) getBlocksToFree() []BlockNode {
-	ret := make([]BlockNode, 10)
-	for _, v := range fn.DataBlocks {
-		ret = append(ret, v)
-	}
-	for _, v := range fn.AlternateRoutes {
-		ret = append(ret, v)
-	}
-	return ret
+	return nil, err
 }
 
 // Writes a file, creating if it doesn't exist, overwriting if it does
@@ -289,12 +231,6 @@ func (rfs *RootFileSystem) StatFile(fileName string) (*FileNode, error) {
 	} else {
 		return nil, err
 	}
-}
-
-func (rfs *RootFileSystem) retrieveFn(fileName string, createNew bool) (*FileNode, error) {
-	parts := strings.Split(fileName, "/")
-	dn, _ := rfs.ChangeCache.GetDirectoryNode(rfs.SuperBlock.RootDirectory)
-	return dn.findNode(parts[1:], rfs, createNew)
 }
 
 // Read all of the contents of the given file
