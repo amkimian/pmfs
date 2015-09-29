@@ -18,6 +18,7 @@ var parserCommands = map[string]ParserCommand{
 	"rm":         ParserCommand{1, executeRm},
 	"mv":         ParserCommand{2, executeMv},
 	"tags":       ParserCommand{1, executeTags},
+	"cattag":     ParserCommand{2, executeCatTag},
 }
 
 func executeTags(parameters []string, remainingCommand string, executor *ShellExecutor) []string {
@@ -70,6 +71,13 @@ func executeLS(parameters []string, remainingCommand string, executor *ShellExec
 func executeCat(parameters []string, remainingCommand string, executor *ShellExecutor) []string {
 	filePath := util.ResolvePath(executor.Cwd, parameters[0])
 	arr, _ := executor.Rfs.ReadFile(filePath)
+	// Need to convert it into a string, then split on \n
+	return strings.Split(string(arr), "\n")
+}
+
+func executeCatTag(parameters []string, remainingCommand string, executor *ShellExecutor) []string {
+	filePath := util.ResolvePath(executor.Cwd, parameters[0])
+	arr, _ := executor.Rfs.ReadFileTag(filePath, parameters[1])
 	// Need to convert it into a string, then split on \n
 	return strings.Split(string(arr), "\n")
 }

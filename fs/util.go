@@ -14,6 +14,14 @@ func rawBlock(sb interface{}) []byte {
 	return nil
 }
 
+func getRoute(contents []byte) *DataRoute {
+	buffer := bytes.NewBuffer(contents)
+	dec := gob.NewDecoder(buffer)
+	var ret DataRoute
+	dec.Decode(&ret)
+	return &ret
+}
+
 func getDirectoryNode(contents []byte) *DirectoryNode {
 	buffer := bytes.NewBuffer(contents)
 

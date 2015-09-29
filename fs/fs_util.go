@@ -72,6 +72,11 @@ func getKeys(maps map[string]BlockNode) []string {
 	return keys
 }
 
+func (rfs *RootFileSystem) getRoute(node BlockNode) *DataRoute {
+	rawData := rfs.BlockHandler.GetRawBlock(node)
+	return getRoute(rawData)
+}
+
 func (rfs *RootFileSystem) deliverMessage(msg string) {
 	rfs.Notification <- msg
 }
