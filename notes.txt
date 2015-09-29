@@ -1,3 +1,10 @@
+Some more notes (added here at the top)
+
+Fix console by putting in lock between notification updates and console updates
+Do web front end next
+
+
+
 Some notes on what needs to be done for pmfs
 
 (DONE for now) Append to File

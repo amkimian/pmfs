@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/amkimian/pmfs/shell"
 	"github.com/nsf/termbox-go"
@@ -10,10 +11,12 @@ import (
 var output_mode = termbox.OutputNormal
 
 func printString(x, y int, s string, fg termbox.Attribute, bg termbox.Attribute) int {
-	for _, r := range s {
-		termbox.SetCell(x, y, r, fg, bg)
-		x++
-	}
+	withLock(func() {
+		for _, r := range s {
+			termbox.SetCell(x, y, r, fg, bg)
+			x++
+		}
+	})
 	return x
 }
 
@@ -22,12 +25,16 @@ func printRightString(x, y int, s string, fg termbox.Attribute, bg termbox.Attri
 	return printString(newX, y, s, fg, bg)
 }
 
+var lock sync.RWMutex
+
 const horLine = 0x2500
 
 func drawLine(y int, count int) {
-	for i := 0; i < count-1; i++ {
-		termbox.SetCell(i, y, horLine, termbox.ColorGreen, termbox.ColorDefault)
-	}
+	withLock(func() {
+		for i := 0; i < count-1; i++ {
+			termbox.SetCell(i, y, horLine, termbox.ColorGreen, termbox.ColorDefault)
+		}
+	})
 }
 
 type DrawContext struct {
@@ -53,17 +60,25 @@ func (d *DrawContext) init() {
 	d.setDimensions(termbox.Size())
 }
 
+func withLock(f func()) {
+	lock.Lock()
+	defer lock.Unlock()
+	f()
+}
+
 func (d *DrawContext) addMessageHistory(msg string) {
 	d.msgHistory = append(d.msgHistory, msg)
 	if len(d.msgHistory) > 20 {
 		d.msgHistory = d.msgHistory[1:]
 	}
+
 	for i := range d.msgHistory {
 		printString(d.msgColumn, d.outputArea+i, d.msgHistory[i], termbox.ColorGreen, termbox.ColorDefault)
 		clearArea(d.msgColumn+len(d.msgHistory[i]), d.outputArea+i, d.width-1, d.outputArea+i+1)
 	}
 	clearArea(d.msgColumn, d.outputArea+len(d.msgHistory), d.width-1, d.entryLine-2)
-	termbox.Flush()
+	d.flush()
+
 }
 
 func (d *DrawContext) setDimensions(width int, height int) {
@@ -73,12 +88,14 @@ func (d *DrawContext) setDimensions(width int, height int) {
 	d.folderRightPoint = width - 1
 	d.outputArea = 3
 	d.msgColumn = width / 2
+
 	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
 	d.printTitle()
 	d.printFolder()
 	d.drawLines()
 	d.drawInputLine()
-	termbox.Flush()
+	d.flush()
+
 }
 
 func (d *DrawContext) printTitle() {
@@ -104,7 +121,13 @@ func (d *DrawContext) executeLine() {
 	d.currentInputString = ""
 	d.drawInputLine()
 	d.printFolder()
-	termbox.Flush()
+	d.flush()
+}
+
+func (d *DrawContext) flush() {
+	withLock(func() {
+		termbox.Flush()
+	})
 }
 
 func (d *DrawContext) handleHistory(direction int) {
@@ -143,11 +166,13 @@ func (d *DrawContext) removeInput() {
 }
 
 func clearArea(x, y, endx, endy int) {
-	for xpoint := x; xpoint < endx; xpoint++ {
-		for ypoint := y; ypoint < endy; ypoint++ {
-			termbox.SetCell(xpoint, ypoint, ' ', termbox.ColorDefault, termbox.ColorDefault)
+	withLock(func() {
+		for xpoint := x; xpoint < endx; xpoint++ {
+			for ypoint := y; ypoint < endy; ypoint++ {
+				termbox.SetCell(xpoint, ypoint, ' ', termbox.ColorDefault, termbox.ColorDefault)
+			}
 		}
-	}
+	})
 }
 
 func (d *DrawContext) drawInputLine() {
