@@ -252,3 +252,28 @@ func (rfs *RootFileSystem) ReadFile(fileName string) ([]byte, error) {
 		return nil, err
 	}
 }
+
+// Read all of the contents of the given file
+func (rfs *RootFileSystem) ReadFileTag(fileName string, tagName string) ([]byte, error) {
+	// Traverse the directory node system to find the BlockNode for the FileNode
+	// Load that up, and read from the Blocks, appending to a single bytebuffer and then return that
+	// If the ContinuationNode is set, load that one and carry on there
+
+	fn, err := rfs.retrieveFn(fileName, false)
+
+	if err == nil {
+		routeBlock, ok := fn.AlternateRoutes[tagName]
+		if !ok {
+			return nil, errors.New("That tag does not exist")
+		}
+		route := rfs.getRoute(routeBlock)
+		buffer := new(bytes.Buffer)
+		for _, i := range route.DataBlockNames {
+			data := rfs.BlockHandler.GetRawBlock(fn.DataBlocks[i])
+			buffer.Write(data)
+		}
+		return buffer.Bytes(), nil
+	} else {
+		return nil, err
+	}
+}
