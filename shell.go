@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/amkimian/pmfs/shell"
+	"github.com/amkimian/pmfs/web"
 	"github.com/nsf/termbox-go"
 )
 
@@ -202,6 +203,7 @@ func main() {
 		}
 	}()
 
+	go web.StartServer()
 loop:
 	for {
 		switch ev := termbox.PollEvent(); ev.Type {

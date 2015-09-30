@@ -1,9 +1,11 @@
 Some more notes (added here at the top)
 
-Fix console by putting in lock between notification updates and console updates
+(DONE) Fix console by putting in lock between notification updates and console updates
 Do web front end next
 
-
+Perhaps for the web front end we *DON'T* put the web pages in the golang server, we create a standard HTTP based API to this server which has some
+kind of command pattern. We then write something like an aurelia.io application (served with node.js) that talks to a PMFS using that API, but
+it manages the general web front end goodness. The api should be like api.github.com ???
 
 Some notes on what needs to be done for pmfs
 
