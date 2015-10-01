@@ -122,6 +122,16 @@ func (rfs *RootFileSystem) DeleteFile(fileName string) error {
 	return err
 }
 
+func (rfs *RootFileSystem) RetrieveFileNode(id BlockNode) (*FileNode, error) {
+	rawBlock := rfs.BlockHandler.GetRawBlock(id)
+	return getFileNode(rawBlock), nil
+}
+
+func (rfs *RootFileSystem) RetrieveDirectoryNode(id BlockNode) (*DirectoryNode, error) {
+	rawBlock := rfs.BlockHandler.GetRawBlock(id)
+	return getDirectoryNode(rawBlock), nil
+}
+
 // Moving something means taking the definition (FileNode or DirectoryNode blockId) in one
 // DirectoryNode entry and moving it to another DirectoryNode entry, creating that DirectoryNode
 // in the target if it doesn't exist. Note that if we move filesystems we will have to actually

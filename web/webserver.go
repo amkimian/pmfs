@@ -42,13 +42,24 @@ func getFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem)
 	// 1 get of a file, so dump the contents
 	// 2 get of a folder, so construct some nice json
 
-	x, err := filesys.ReadFile(r.URL.Path)
+	fileNode, dirNode, err := filesys.GetFileOrDirectory(r.URL.Path)
+
 	if err != nil {
 		fmt.Fprintf(w, "%v", err)
 		w.WriteHeader(http.StatusNotFound)
 	} else {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "%v", string(x))
+		if fileNode != nil {
+			var x []byte
+			x, err = filesys.ReadFile(r.URL.Path)
+			fmt.Fprintf(w, "%v", string(x))
+		} else {
+			// Need to get file directory structure as a json object
+			dirStructure := getDirStructure(r.URL.Path, dirNode, filesys)
+			var b []byte
+			b, err = json.MarshalIndent(dirStructure, "", "    ")
+			fmt.Fprintf(w, "%v", string(b))
+		}
 	}
 }
 
