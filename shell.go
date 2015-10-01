@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/amkimian/pmfs/shell"
-	"github.com/amkimian/pmfs/web"
 	"github.com/nsf/termbox-go"
 )
 
@@ -188,7 +187,7 @@ func (d *DrawContext) setInputCursor() {
 
 var context DrawContext
 
-func main() {
+func otherMain() {
 	err := termbox.Init()
 
 	if err != nil {
@@ -203,7 +202,7 @@ func main() {
 		}
 	}()
 
-	go web.StartServer()
+	//	go web.StartServer()
 loop:
 	for {
 		switch ev := termbox.PollEvent(); ev.Type {

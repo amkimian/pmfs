@@ -1,6 +1,6 @@
 package config
 
 var (
-	PORT    int    = 5968
+	PORT    int    = 5967
 	WEBROOT string = "./static/webroot"
 )

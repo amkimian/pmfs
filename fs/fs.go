@@ -38,6 +38,28 @@ func (rfs *RootFileSystem) Format(bc int, bs int) {
 	rfs.SuperBlock = sb
 }
 
+func (rfs *RootFileSystem) GetFileOrDirectory(path string) (*FileNode, *DirectoryNode, error) {
+	dn, _ := rfs.ChangeCache.GetDirectoryNode(rfs.SuperBlock.RootDirectory)
+
+	var dnReal *DirectoryNode
+	var fnReal *FileNode
+	var err error
+
+	if path == "/" {
+		dnReal = dn
+	} else {
+		parts := strings.Split(path, "/")
+		dnReal, err = dn.findDirectoryNode(parts[1:], rfs)
+		// And now get the names of things and add them to "entries"
+		// for now, don't do the continuation
+		if err != nil {
+			// Must be a file
+			fnReal, err = dn.findNode(parts[1:], rfs, false)
+		}
+	}
+	return fnReal, dnReal, err
+}
+
 // Return (currently) the list of entries at this point in the filesystem hiearchy
 func (rfs *RootFileSystem) ListDirectory(path string) ([]string, error) {
 	// As a test, simply return the names of things at this path. Later on we'll return a structure that defines names, types and stats

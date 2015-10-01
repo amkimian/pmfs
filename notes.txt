@@ -1,11 +1,33 @@
 Some more notes (added here at the top)
 
-(DONE) Fix console by putting in lock between notification updates and console updates
+Fix console by putting in lock between notification updates and console updates
 Do web front end next
 
-Perhaps for the web front end we *DON'T* put the web pages in the golang server, we create a standard HTTP based API to this server which has some
-kind of command pattern. We then write something like an aurelia.io application (served with node.js) that talks to a PMFS using that API, but
-it manages the general web front end goodness. The api should be like api.github.com ???
+Web API (kind of like api.github.com)
+1. Most responses are in json form, except for getting content from a regular file (the file contents is returned
+the mime type is set in the response).
+2. The general form is:
+
+[url]?cmd=[command on that url]&[any other parameters required for that command]
+
+3. For uploading new data a POST form to a uri will also work (saves putting content in query parameters)
+4. The default command is "get" so it can be omitted. So a simply uri corresponds to "return the contents of that file" or "return a
+json document with information about this directory".
+5. Other commands
+
+stat = stat of uri (returned as json)
+append = append data to that uri
+tags = tags of that uri
+gettag = retrieve the contents given a tag
+blocks = retrieve a list of the block names for the tag
+getrange = retrieve contents based on a range (start point, end point, each can be open) (with optional version)
+delete = remove content
+mount = create a mount point
+link = create a link
+diff = difference between two tags (TBD)
+
+
+
 
 Some notes on what needs to be done for pmfs
 
