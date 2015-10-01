@@ -25,6 +25,7 @@ func main() {
 	}()
 	f.Format(100, 100)
 	f.WriteFile("/eileen/alan", []byte("Hello world this is a test"))
+	f.AppendFile("/eileen/alan", []byte("\nThis is line 2, part of version 2"))
 
 	names, _ := f.ListDirectory("/eileen")
 	for y := range names {

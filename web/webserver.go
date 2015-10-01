@@ -3,7 +3,6 @@
 package web
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"fmt"
@@ -11,57 +10,6 @@ import (
 	"github.com/amkimian/pmfs/config"
 	"github.com/amkimian/pmfs/fs"
 )
-
-type ApiRequest struct {
-	processor func(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem)
-}
-
-var requests = map[string]ApiRequest{
-	"get":  ApiRequest{getFunc},
-	"stat": ApiRequest{statFunc},
-}
-
-func statFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem) {
-	fileNode, dirNode, err := filesys.GetFileOrDirectory(r.URL.Path)
-	if err != nil {
-		fmt.Fprintf(w, "%v", err)
-		w.WriteHeader(http.StatusNotFound)
-	} else if dirNode != nil {
-		var b []byte
-		b, err = json.MarshalIndent(dirNode, "", "    ")
-		fmt.Fprintf(w, "%v", string(b))
-	} else if fileNode != nil {
-		var b []byte
-		b, err = json.MarshalIndent(fileNode, "", "    ")
-		fmt.Fprintf(w, "%v", string(b))
-	}
-}
-
-func getFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem) {
-	// This can be two things
-	// 1 get of a file, so dump the contents
-	// 2 get of a folder, so construct some nice json
-
-	fileNode, dirNode, err := filesys.GetFileOrDirectory(r.URL.Path)
-
-	if err != nil {
-		fmt.Fprintf(w, "%v", err)
-		w.WriteHeader(http.StatusNotFound)
-	} else {
-		w.WriteHeader(http.StatusOK)
-		if fileNode != nil {
-			var x []byte
-			x, err = filesys.ReadFile(r.URL.Path)
-			fmt.Fprintf(w, "%v", string(x))
-		} else {
-			// Need to get file directory structure as a json object
-			dirStructure := getDirStructure(r.URL.Path, dirNode, filesys)
-			var b []byte
-			b, err = json.MarshalIndent(dirStructure, "", "    ")
-			fmt.Fprintf(w, "%v", string(b))
-		}
-	}
-}
 
 var filesys *fs.RootFileSystem
 
