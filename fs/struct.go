@@ -25,6 +25,15 @@ const (
 	MOUNT
 )
 
+type BlockStructure struct {
+	Blocks []Block
+}
+
+type Block struct {
+	Key   string
+	Value interface{}
+}
+
 // The RootFileSystem contains the information about this filesystem and is the main
 // entry point for working with a file system.
 type RootFileSystem struct {

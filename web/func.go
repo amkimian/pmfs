@@ -2,17 +2,73 @@ package web
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/amkimian/pmfs/fs"
 )
 
-func statFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem) {
-	fileNode, dirNode, err := filesys.GetFileOrDirectory(r.URL.Path)
+// Add a new block to a structured file. The name of the block
+// is in the parameter "block", the content is as before in "data"
+func blockAddFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem) {
+	fileNode, dirNode, err := filesys.GetFileOrDirectory(r.URL.Path, true)
 	if err != nil {
-		fmt.Fprintf(w, "%v", err)
-		w.WriteHeader(http.StatusNotFound)
+		writeError(w, err)
+	} else if dirNode != nil {
+		writeError(w, errors.New("Cannot add to a directory"))
+	} else {
+		// We have a filenode...
+		filesys.SaveNewBlock(fileNode, r.Form["block"][0], []byte(r.Form["data"][0]), true)
+		getFunc(w, r, filesys)
+	}
+}
+
+func getFormValue(r *http.Request, field string, def string) string {
+	val, ok := r.Form[field]
+	if !ok {
+		return def
+	} else {
+		return val[0]
+	}
+}
+
+// The block get Func retrieves a block given a range
+// Parameters are
+// start (optional) the start block (inclusive)
+// end (optional) the end block (inclusive)
+// tag (optional) the tag of the version to do this for
+// Basically the function retrieves the route given the tag version (or default root)
+// and then filters the block names given the start and end.
+// The return data is a list structure containing the key (block name) and the value (the value of the block)
+func blockGetFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem) {
+	fileNode, dirNode, err := filesys.GetFileOrDirectory(r.URL.Path, false)
+	if err != nil {
+		writeError(w, err)
+	} else if dirNode != nil {
+		writeError(w, errors.New("Cannot do this to a directory"))
+	} else {
+		// We have a filenode...
+		blockStructure, err := filesys.GetBlock(fileNode, getFormValue(r, "tag", ""), getFormValue(r, "start", ""), getFormValue(r, "end", ""))
+		if err != nil {
+			writeError(w, err)
+		} else {
+			var b []byte
+			b, err = json.MarshalIndent(blockStructure, "", "    ")
+			fmt.Fprintf(w, "%v", string(b))
+		}
+	}
+}
+
+func writeError(w http.ResponseWriter, err error) {
+	fmt.Fprintf(w, "%v", err)
+	w.WriteHeader(http.StatusNotFound)
+}
+
+func statFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem) {
+	fileNode, dirNode, err := filesys.GetFileOrDirectory(r.URL.Path, false)
+	if err != nil {
+		writeError(w, err)
 	} else if dirNode != nil {
 		var b []byte
 		b, err = json.MarshalIndent(dirNode, "", "    ")
@@ -29,11 +85,10 @@ func getFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem)
 	// 1 get of a file, so dump the contents
 	// 2 get of a folder, so construct some nice json
 
-	fileNode, dirNode, err := filesys.GetFileOrDirectory(r.URL.Path)
+	fileNode, dirNode, err := filesys.GetFileOrDirectory(r.URL.Path, false)
 
 	if err != nil {
-		fmt.Fprintf(w, "%v", err)
-		w.WriteHeader(http.StatusNotFound)
+		writeError(w, err)
 	} else {
 		w.WriteHeader(http.StatusOK)
 		if fileNode != nil {
@@ -57,6 +112,8 @@ func verGetFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSyst
 	arr, err := filesys.ReadFileTag(r.URL.Path, r.Form["tag"][0])
 	if err == nil {
 		fmt.Fprintf(w, "%v", string(arr))
+	} else {
+		writeError(w, err)
 	}
 }
 
@@ -64,8 +121,7 @@ func verGetFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSyst
 func deleteFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem) {
 	err := filesys.DeleteFile(r.URL.Path)
 	if err != nil {
-		fmt.Fprintf(w, "%v", err)
-		w.WriteHeader(http.StatusNotFound)
+		writeError(w, err)
 	} else {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "Removed %s", r.URL.Path)

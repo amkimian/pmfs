@@ -18,4 +18,6 @@ var requests = map[string]ApiRequest{
 	"addFile":    ApiRequest{addFileFunc},
 	"appendFile": ApiRequest{appendFileFunc},
 	"appendLine": ApiRequest{appendLineFunc},
+	"blockAdd":   ApiRequest{blockAddFunc},
+	"blockGet":   ApiRequest{blockGetFunc},
 }

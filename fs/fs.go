@@ -38,7 +38,7 @@ func (rfs *RootFileSystem) Format(bc int, bs int) {
 	rfs.SuperBlock = sb
 }
 
-func (rfs *RootFileSystem) GetFileOrDirectory(path string) (*FileNode, *DirectoryNode, error) {
+func (rfs *RootFileSystem) GetFileOrDirectory(path string, createIfNotExist bool) (*FileNode, *DirectoryNode, error) {
 	dn, _ := rfs.ChangeCache.GetDirectoryNode(rfs.SuperBlock.RootDirectory)
 
 	var dnReal *DirectoryNode
@@ -54,7 +54,7 @@ func (rfs *RootFileSystem) GetFileOrDirectory(path string) (*FileNode, *Director
 		// for now, don't do the continuation
 		if err != nil {
 			// Must be a file
-			fnReal, err = dn.findNode(parts[1:], rfs, false)
+			fnReal, err = dn.findNode(parts[1:], rfs, createIfNotExist)
 		}
 	}
 	return fnReal, dnReal, err
@@ -200,6 +200,54 @@ func (rfs *RootFileSystem) MoveFileOrFolder(source string, target string) error 
 	}
 }
 
+func (rfs *RootFileSystem) GetBlock(fileNode *FileNode, tag string, start string, end string) (*BlockStructure, error) {
+	route := fileNode.DefaultRoute.DataBlockNames
+	if len(tag) != 0 {
+		routeNode, ok := fileNode.AlternateRoutes[tag]
+		if !ok {
+			return nil, errors.New("No tag found")
+		}
+		r := getRoute(rfs.BlockHandler.GetRawBlock(routeNode))
+		route = r.DataBlockNames
+	}
+	// Now we need to filter DataBlockNames
+	newRoute := make([]string, 0)
+	foundStart := (len(start) == 0)
+	foundEnd := false
+	for entry := range route {
+		if !foundStart {
+			if route[entry] >= start {
+				foundStart = true
+			}
+		}
+		if !foundEnd {
+			if len(end) > 0 && route[entry] > end {
+				foundEnd = true
+			}
+		}
+		if foundStart && !foundEnd {
+			newRoute = append(newRoute, route[entry])
+		}
+	}
+
+	// Ok now newRoute contains the list of block names
+	blockStructure := BlockStructure{}
+	blockStructure.Blocks = make([]Block, 0)
+
+	for point := range newRoute {
+		rNode, ok := fileNode.DataBlocks[newRoute[point]]
+		if !ok {
+			return nil, errors.New("Invalid block structure")
+		}
+		data := rfs.BlockHandler.GetRawBlock(rNode)
+		b := Block{}
+		b.Key = newRoute[point]
+		b.Value = string(data)
+		blockStructure.Blocks = append(blockStructure.Blocks, b)
+	}
+	return &blockStructure, nil
+}
+
 // Appends the content to the given file, creating the file if it doesn't exist
 func (rfs *RootFileSystem) AppendFile(fileName string, contents []byte) error {
 	fn, err := rfs.retrieveFn(fileName, true)
@@ -213,7 +261,6 @@ func (rfs *RootFileSystem) AppendFile(fileName string, contents []byte) error {
 		// DefaultRoute into the new version in the version route information
 
 		rfs.saveNewData(fn, contents)
-
 	} else {
 		return err
 	}

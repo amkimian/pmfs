@@ -2,6 +2,7 @@ package fs
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -35,8 +36,23 @@ func getKeyName(val int) string {
 	return fmt.Sprintf("%05d", val)
 }
 
-// This function appends data to this fileNode
 func (rfs *RootFileSystem) saveNewData(fn *FileNode, contents []byte) {
+	newBlockId := len(fn.DataBlocks) + 1
+	keyName := getKeyName(newBlockId)
+	rfs.SaveNewBlock(fn, keyName, contents, false)
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+// This function appends data to this fileNode
+func (rfs *RootFileSystem) SaveNewBlock(fn *FileNode, keyName string, contents []byte, sortBlocks bool) {
 	fn.Stats.Size = fn.Stats.Size + len(contents)
 	fn.Stats.modified()
 	for i := 0; i < len(contents); i = i + rfs.SuperBlock.BlockSize {
@@ -46,12 +62,19 @@ func (rfs *RootFileSystem) saveNewData(fn *FileNode, contents []byte) {
 		} else {
 			toWrite = contents[i : i+rfs.SuperBlock.BlockSize]
 		}
-		newBlockId := len(fn.DataBlocks) + 1
-		keyName := getKeyName(newBlockId)
-		newDataNode := rfs.BlockHandler.GetFreeDataBlockNode(fn.Node, keyName)
-		fn.DataBlocks[keyName] = newDataNode
-		fn.DefaultRoute.DataBlockNames = append(fn.DefaultRoute.DataBlockNames, keyName)
-		rfs.BlockHandler.SaveRawBlock(newDataNode, toWrite)
+		newDataNode, ok := fn.DataBlocks[keyName]
+		if !ok {
+			newDataNode = rfs.BlockHandler.GetFreeDataBlockNode(fn.Node, keyName)
+			fn.DataBlocks[keyName] = newDataNode
+			fn.DefaultRoute.DataBlockNames = append(fn.DefaultRoute.DataBlockNames, keyName)
+			if sortBlocks {
+				// We need to sort the Datablock names in the DefaultRoute
+				sort.Strings(fn.DefaultRoute.DataBlockNames)
+			}
+			rfs.BlockHandler.SaveRawBlock(newDataNode, toWrite)
+		} else {
+			rfs.BlockHandler.SaveRawBlock(newDataNode, toWrite)
+		}
 	}
 	// Now update the version route
 	fn.Version++

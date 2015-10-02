@@ -1,3 +1,16 @@
+Some more notes
+
+DONE Do block add command
+DONE Block range command (though how to make that work with update data on pure file)
+
+then...
+Attributes of node (commands to add, listall, get)
+Then...
+Reverse search index (btree of words to url + version) (so rebuild for each update)
+Search index stored in repo. So how to search all repos (mounted etc.?) Maybe you have to
+   provide the urls of the mount points in search
+
+
 Some more notes (added here at the top)
 
 Fix console by putting in lock between notification updates and console updates
