@@ -1,7 +1,9 @@
 package fs
 
 import (
+	"bytes"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -36,10 +38,10 @@ func getKeyName(val int) string {
 	return fmt.Sprintf("%05d", val)
 }
 
-func (rfs *RootFileSystem) saveNewData(fn *FileNode, contents []byte) {
+func (rfs *RootFileSystem) saveNewData(fullPath string, fn *FileNode, contents []byte) {
 	newBlockId := len(fn.DataBlocks) + 1
 	keyName := getKeyName(newBlockId)
-	rfs.SaveNewBlock(fn, keyName, contents, false)
+	rfs.SaveNewBlock(fullPath, fn, keyName, contents, false)
 }
 
 func contains(s []string, e string) bool {
@@ -52,7 +54,7 @@ func contains(s []string, e string) bool {
 }
 
 // This function appends data to this fileNode
-func (rfs *RootFileSystem) SaveNewBlock(fn *FileNode, keyName string, contents []byte, sortBlocks bool) {
+func (rfs *RootFileSystem) SaveNewBlock(fullPath string, fn *FileNode, keyName string, contents []byte, sortBlocks bool) {
 	fn.Stats.Size = fn.Stats.Size + len(contents)
 	fn.Stats.modified()
 	for i := 0; i < len(contents); i = i + rfs.SuperBlock.BlockSize {
@@ -78,13 +80,31 @@ func (rfs *RootFileSystem) SaveNewBlock(fn *FileNode, keyName string, contents [
 	}
 	// Now update the version route
 	fn.Version++
-	newVersionTag := fmt.Sprintf("v%d", fn.Version)
+	newVersionTag := fmt.Sprintf("v%09d", fn.Version)
+	fn.LatestTag = newVersionTag
 	routeBlockId := rfs.BlockHandler.GetFreeBlockNode(ROUTE)
 	// Todo, put in cache
 	rfs.BlockHandler.SaveRawBlock(routeBlockId, rawBlock(fn.DefaultRoute))
 	fn.AlternateRoutes[newVersionTag] = routeBlockId
 	fn.Stats.modified()
 	rfs.ChangeCache.SaveFileNode(fn)
+	// If sortBlocks is false, save the index by creating words and updating the index
+	// for this version (and the latest version)
+	if !sortBlocks {
+		rfs.addWordIndex(fullPath, fn)
+	}
+}
+
+func (rfs *RootFileSystem) addWordIndex(fullPath string, fn *FileNode) {
+	buffer := new(bytes.Buffer)
+	for _, i := range fn.DefaultRoute.DataBlockNames {
+		data := rfs.BlockHandler.GetRawBlock(fn.DataBlocks[i])
+		buffer.Write(data)
+	}
+	fullString := string(buffer.Bytes())
+	words := regexp.MustCompile("\\w+")
+	w := words.FindAllString(fullString, -1)
+	rfs.SearchAddTerms("text", w, fullPath, fn.LatestTag)
 }
 
 func getKeys(maps map[string]BlockNode) []string {
@@ -98,6 +118,11 @@ func getKeys(maps map[string]BlockNode) []string {
 func (rfs *RootFileSystem) getRoute(node BlockNode) *DataRoute {
 	rawData := rfs.BlockHandler.GetRawBlock(node)
 	return getRoute(rawData)
+}
+
+func (rfs *RootFileSystem) getSearchIndex() *SearchIndex {
+	rawData := rfs.BlockHandler.GetRawBlock(rfs.SuperBlock.SearchIndexNode)
+	return getSearchIndex(rawData)
 }
 
 func (rfs *RootFileSystem) deliverMessage(msg string) {

@@ -19,7 +19,7 @@ func blockAddFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSy
 		writeError(w, errors.New("Cannot add to a directory"))
 	} else {
 		// We have a filenode...
-		filesys.SaveNewBlock(fileNode, r.Form["block"][0], []byte(r.Form["data"][0]), true)
+		filesys.SaveNewBlock(r.URL.Path, fileNode, r.Form["block"][0], []byte(r.Form["data"][0]), true)
 		getFunc(w, r, filesys)
 	}
 }
@@ -30,6 +30,21 @@ func getFormValue(r *http.Request, field string, def string) string {
 		return def
 	} else {
 		return val[0]
+	}
+}
+
+// term, start, end
+func attrFindFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem) {
+	term := r.Form["term"][0]
+	start := r.Form["start"][0]
+	end := r.Form["end"][0]
+	ret, err := filesys.SearchFindTerms(term, start, end)
+	if err != nil {
+		writeError(w, err)
+	} else {
+		var b []byte
+		b, err = json.MarshalIndent(ret, "", "    ")
+		fmt.Fprintf(w, "%v", string(b))
 	}
 }
 
@@ -63,6 +78,28 @@ func blockGetFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSy
 func writeError(w http.ResponseWriter, err error) {
 	fmt.Fprintf(w, "%v", err)
 	w.WriteHeader(http.StatusNotFound)
+}
+
+func attrAddFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem) {
+	fileNode, dirNode, err := filesys.GetFileOrDirectory(r.URL.Path, false)
+	if err != nil {
+		writeError(w, err)
+	} else if dirNode != nil {
+		dirNode.Attributes[r.Form["key"][0]] = r.Form["value"][0]
+		filesys.ChangeCache.SaveDirectoryNode(dirNode)
+		statFunc(w, r, filesys)
+	} else if fileNode != nil {
+		fileNode.Attributes[r.Form["key"][0]] = r.Form["value"][0]
+		filesys.ChangeCache.SaveFileNode(fileNode)
+		statFunc(w, r, filesys)
+	}
+}
+
+// TBI
+func attrListFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem) {
+}
+
+func attrGetFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem) {
 }
 
 func statFunc(w http.ResponseWriter, r *http.Request, filesys *fs.RootFileSystem) {

@@ -20,4 +20,8 @@ var requests = map[string]ApiRequest{
 	"appendLine": ApiRequest{appendLineFunc},
 	"blockAdd":   ApiRequest{blockAddFunc},
 	"blockGet":   ApiRequest{blockGetFunc},
+	"attrAdd":    ApiRequest{attrAddFunc},
+	"attr":       ApiRequest{attrListFunc},
+	"attrGet":    ApiRequest{attrGetFunc},
+	"find":       ApiRequest{attrFindFunc},
 }

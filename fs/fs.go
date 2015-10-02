@@ -30,9 +30,13 @@ func (rfs *RootFileSystem) Format(bc int, bs int) {
 	rdn.Stats.setNow()
 	blockNode := rfs.BlockHandler.GetFreeBlockNode(DIRECTORY)
 	rdn.Node = blockNode
+	searchNode := rfs.BlockHandler.GetFreeBlockNode(SEARCHINDEX)
+	searchIndex := SearchIndex{Node: searchNode, Terms: make(map[string]BlockNode)}
+
+	rfs.BlockHandler.SaveRawBlock(searchNode, rawBlock(searchIndex))
 
 	Root := rfs.BlockHandler.SaveRawBlock(blockNode, rawBlock(rdn))
-	sb := SuperBlockNode{SuperBlock, bc, bs, Root}
+	sb := SuperBlockNode{SuperBlock, bc, bs, Root, searchNode}
 
 	rfs.BlockHandler.SaveRawBlock(SuperBlock, rawBlock(sb))
 	rfs.SuperBlock = sb
@@ -116,7 +120,7 @@ func (rfs *RootFileSystem) DeleteFile(fileName string) error {
 		delete(dnReal.Files, parts[len(parts)-1])
 		rfs.ChangeCache.DeleteFileNode(fn)
 		rfs.ChangeCache.SaveDirectoryNode(dnReal)
-
+		// TODO Also remove from search index
 		return nil
 	}
 	return err
@@ -189,6 +193,7 @@ func (rfs *RootFileSystem) MoveFileOrFolder(source string, target string) error 
 				} else {
 					delete(sourceNode.Files, lastName)
 				}
+				// TODO Change index
 			}
 		}
 		// Now save them
@@ -260,7 +265,7 @@ func (rfs *RootFileSystem) AppendFile(fileName string, contents []byte) error {
 		// in the routes information. After appending the blocks, we update the DefaultRoute and copy the
 		// DefaultRoute into the new version in the version route information
 
-		rfs.saveNewData(fn, contents)
+		rfs.saveNewData(fileName, fn, contents)
 	} else {
 		return err
 	}
@@ -290,7 +295,7 @@ func (rfs *RootFileSystem) WriteFile(fileName string, contents []byte) error {
 	if err == nil {
 		rfs.BlockHandler.FreeBlocks(fn.getBlocksToFree())
 
-		rfs.saveNewData(fn, contents)
+		rfs.saveNewData(fileName, fn, contents)
 
 		return nil
 	} else {

@@ -2,6 +2,8 @@ package fs
 
 import (
 	"errors"
+	"fmt"
+	"reflect"
 	"sync"
 	"time"
 )
@@ -49,7 +51,7 @@ func (c *Cache) pushEntry(node BlockNode) {
 // then update the cache. Periodically we also clean the cache out of non-dirty
 // assets
 func cacheManager(cache *Cache) {
-	timer := time.Tick(1 * time.Minute)
+	timer := time.Tick(10 * time.Second)
 	for {
 		select {
 		case id := <-cache.c:
@@ -58,7 +60,8 @@ func cacheManager(cache *Cache) {
 			if ok {
 				//cache.rwmutex.Lock()
 				if entry.action == UPDATE {
-					cache.Fs.deliverMessage("Cache save to fs")
+					vals := rawBlock(entry.entry)
+					cache.Fs.deliverMessage(fmt.Sprintf("Cache save to fs, size is %d, type is %v", len(vals), reflect.TypeOf(entry.entry)))
 					cache.Fs.BlockHandler.SaveRawBlock(id, rawBlock(entry.entry))
 					entry.dirty = false
 					cache.EntryMap[id] = entry
@@ -85,6 +88,47 @@ func cacheManager(cache *Cache) {
 			cache.rwmutex.Unlock()
 		}
 	}
+}
+
+func (c *Cache) GetSearchIndex() *SearchIndex {
+	entry, ok := c.EntryMap[c.Fs.SuperBlock.SearchIndexNode]
+	var si *SearchIndex
+	if !ok {
+		si := c.Fs.getSearchIndex()
+		newEntry := CacheEntry{c.Fs.SuperBlock.SearchIndexNode, false, NONE, si}
+		c.rwmutex.Lock()
+		c.EntryMap[c.Fs.SuperBlock.SearchIndexNode] = &newEntry
+		c.rwmutex.Unlock()
+		return si
+	} else {
+		c.Fs.deliverMessage("Search search index from cache")
+		si = entry.entry.(*SearchIndex)
+		return si
+	}
+}
+
+func (c *Cache) GetSearchTree(nodeId BlockNode) (*SearchTree, error) {
+	entry, ok := c.EntryMap[nodeId]
+	var searchTree *SearchTree
+	if !ok {
+		c.Fs.deliverMessage("Put search tree in cache")
+		rawData := c.Fs.BlockHandler.GetRawBlock(nodeId)
+		searchTree := getSearchTree(rawData)
+		newEntry := CacheEntry{nodeId, false, NONE, searchTree}
+		c.rwmutex.Lock()
+		c.EntryMap[nodeId] = &newEntry
+		c.rwmutex.Unlock()
+		return searchTree, nil
+	} else {
+		c.Fs.deliverMessage("Serve searchTree from cache")
+		if entry.action != DELETE {
+			searchTree = entry.entry.(*SearchTree)
+			return searchTree, nil
+		} else {
+			return nil, errors.New("No search tree found, was deleted in cache")
+		}
+	}
+
 }
 
 // Retrieve a file node from either the cache or the FileSystem
@@ -131,6 +175,23 @@ func (c *Cache) GetDirectoryNode(nodeId BlockNode) (*DirectoryNode, error) {
 	}
 }
 
+func (c *Cache) SaveSearchIndex(searchIndex *SearchIndex) error {
+	entry, ok := c.EntryMap[searchIndex.Node]
+	c.rwmutex.Lock()
+	if !ok {
+		newEntry := CacheEntry{searchIndex.Node, true, UPDATE, searchIndex}
+		c.EntryMap[searchIndex.Node] = &newEntry
+	} else {
+		entry.dirty = true
+		entry.action = UPDATE
+		entry.entry = searchIndex
+		c.EntryMap[searchIndex.Node] = entry
+	}
+	c.pushEntry(searchIndex.Node)
+	c.rwmutex.Unlock()
+	return nil
+}
+
 func (c *Cache) SaveDirectoryNode(dirNode *DirectoryNode) error {
 	entry, ok := c.EntryMap[dirNode.Node]
 	c.rwmutex.Lock()
@@ -163,6 +224,23 @@ func (c *Cache) DeleteFileNode(fileNode *FileNode) {
 	}
 	c.pushEntry(fileNode.Node)
 	c.rwmutex.Unlock()
+}
+
+func (c *Cache) SaveSearchTree(searchTree *SearchTree) error {
+	entry, ok := c.EntryMap[searchTree.Node]
+	c.rwmutex.Lock()
+	if !ok {
+		newEntry := CacheEntry{searchTree.Node, true, UPDATE, searchTree}
+		c.EntryMap[searchTree.Node] = &newEntry
+	} else {
+		entry.dirty = true
+		entry.action = UPDATE
+		entry.entry = searchTree
+		c.EntryMap[searchTree.Node] = entry
+	}
+	c.pushEntry(searchTree.Node)
+	c.rwmutex.Unlock()
+	return nil
 }
 
 func (c *Cache) SaveFileNode(fileNode *FileNode) error {

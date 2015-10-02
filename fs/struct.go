@@ -12,6 +12,8 @@ const (
 	FILE
 	ROUTE
 	DATA
+	SEARCHINDEX
+	SEARCHTREE
 	NIL
 )
 
@@ -82,14 +84,16 @@ type DirectoryNode struct {
 	Folders      map[string]BlockNode
 	Files        map[string]BlockNode
 	Continuation BlockNode
+	Attributes   map[string]interface{}
 }
 
 // This is the topmost node in a filesystem, always stored at node 0
 type SuperBlockNode struct {
-	Node          BlockNode
-	BlockCount    int
-	BlockSize     int
-	RootDirectory BlockNode
+	Node            BlockNode
+	BlockCount      int
+	BlockSize       int
+	RootDirectory   BlockNode
+	SearchIndexNode BlockNode
 }
 
 type DataRoute struct {
@@ -107,6 +111,8 @@ type FileNode struct {
 	DefaultRoute    DataRoute
 	AlternateRoutes map[string]BlockNode // The block node points to a data structure containing a DataRoute
 	Version         int
+	Attributes      map[string]interface{}
+	LatestTag       string
 }
 
 // The storage for a file system must implement this

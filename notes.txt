@@ -10,6 +10,22 @@ Reverse search index (btree of words to url + version) (so rebuild for each upda
 Search index stored in repo. So how to search all repos (mounted etc.?) Maybe you have to
    provide the urls of the mount points in search
 
+BTree search notes
+
+We have a big list of words
+Maybe we have a list of list of words (a key is the first set, and one key is "text")
+Each word has associated with it a list of paths and versions
+
+so
+
+text -> one -> /alan/one v1
+text -> one -> /alan/one v2
+given a search for "text = one" it could return all of those versions for /alan/one
+(maybe we should have a latest version tag as well)
+textLatest -> one -> /alan/one
+Maybe text -> one is a btree (GoLLRB)
+   and the value is the list of data
+   
 
 Some more notes (added here at the top)
 
