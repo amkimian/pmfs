@@ -14,17 +14,25 @@ import (
 var filesys *fs.RootFileSystem
 
 // Start the web server - for the static pages and also the API end points
-func StartServer(rfs *fs.RootFileSystem) {
+func StartAPIServer(rfs *fs.RootFileSystem) {
 	filesys = rfs
-	http.HandleFunc("/", handler)
-	//http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
+	http.Handle("/", APIHandler{})
 	serveString := fmt.Sprintf(":%d", config.PORT)
 	fmt.Printf("Serving on %s\n", serveString)
 	http.ListenAndServe(serveString, nil)
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func StartWebServer() {
+	fmt.Println("Serving web on 8080")
+	http.ListenAndServe(":8080", http.FileServer(http.Dir("static/")))
+}
+
+type APIHandler struct {
+}
+
+func (apiHandler APIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("URL Path is %s\n", r.URL.Path)
+	w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8080")
 	err := r.ParseForm()
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)

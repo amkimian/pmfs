@@ -1,5 +1,16 @@
 Some more notes
 
+Need mime type on FileNodes so you can choose how to index out data
+Snap Tag command - creates named tag for existing or current version
+For a tag should also have a timestamp (including versions)
+So a snap time could also work - call, recursively a snap for a tag given a time
+Perhaps the tree node entry is a block node, not the list itself,
+  then you would only need to persist the tree when you add a new node, at the expense
+  of perhaps slower lookups of the values because of the node indirection
+
+
+Some more notes
+
 DONE Do block add command
 DONE Block range command (though how to make that work with update data on pure file)
 
@@ -25,7 +36,7 @@ given a search for "text = one" it could return all of those versions for /alan/
 textLatest -> one -> /alan/one
 Maybe text -> one is a btree (GoLLRB)
    and the value is the list of data
-   
+
 
 Some more notes (added here at the top)
 

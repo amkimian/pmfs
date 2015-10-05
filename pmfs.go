@@ -47,5 +47,6 @@ func main() {
 		fmt.Printf("Created : %v\nModified : %v\nAccessed : %v\n", stats.Created, stats.Modified, stats.Accessed)
 	}
 
-	web.StartServer(&f)
+	go web.StartAPIServer(&f)
+	web.StartWebServer()
 }
