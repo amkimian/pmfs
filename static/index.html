@@ -6,7 +6,8 @@
   <link href="/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body ng-controller="pmfsController">
-   <span>{{test}}</span>
+  <div class="container">
+    <div class="row">
    <input type="text" ng-model="path"></input>
     <button ng-click="getData()">Get Data</button>
     <table class="table table-striped">
@@ -22,16 +23,21 @@
         <td>{{folder.Name}}</td>
         <td>{{folder.Stats.Created | date}}</td>
         <td>{{folder.Stats.Accessed | date}}</td>
-       <td><button ng-click="jumpInto(folder.Name)">Enter</button>
+       <td><button class="button" ng-click="jumpInto(folder.Name)">Enter</button></td>
       </tr>
       <tr ng-repeat="file in data.Files">
         <td>FILE</td>
         <td>{{file.Name}}</td>
         <td>{{file.Stats.Created | date}}</td>
         <td>{{file.Stats.Accessed | date}}</td>
-        <td></td>
+        <td><button class="button" ng-click="getContent(file.Name)">Content</button></td>
       </tr>
     </table>
+  </div>
+  <div class="row">
+    <span>{{content}}</span>
+  </div>
+</div>
 </body>
 <script src="lib/angular/angular.js"></script>
 <script src="js/app.js"></script>

@@ -15,6 +15,11 @@ angular.module('pmfs.controllers').controller('pmfsController', function($scope,
        $scope.data = data.data;
      }
    )};
+   $scope.getContent = function(name) {
+     fsService.getData($scope.path + "/" + name).then(function(data, status, config, headers) {
+       $scope.content = data.data;
+     }
+   )};
    $scope.jumpInto = function(name) {
      $scope.path = $scope.path + name;
      $scope.getData();
